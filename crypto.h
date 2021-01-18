@@ -36,4 +36,8 @@ CryptoMsg *rsa_file_digest_sign(const CryptoMsg *in, const char *pub_key_path);
 
 int rsa_digest_verify(const CryptoMsg *in, const CryptoMsg *sig, const char *pub_key_path);
 
+CryptoMsg *hexstr_to_CryptoMsg(const char* hexstr);
+
+char *CryptoMsg_to_hexstr(const CryptoMsg *msg);
+
 #endif /* CRYPTO_H */

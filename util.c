@@ -1,4 +1,5 @@
 #include "util.h"
+#include "crypto.h"
 
 void handle_errors()
 {

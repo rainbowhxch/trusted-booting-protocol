@@ -1,5 +1,6 @@
 #include "crypto.h"
 #include <openssl/evp.h>
+#include <stdlib.h>
 
 CryptoMsg *CryptoMsg_new(const size_t msg_len)
 {
@@ -199,4 +200,29 @@ int rsa_digest_verify(const CryptoMsg *in, const CryptoMsg *sig, const char *pub
 	if(mdctx) EVP_MD_CTX_destroy(mdctx);
 	if (pkey) EVP_PKEY_free(pkey);
 	return res;
+}
+
+CryptoMsg *hexstr_to_CryptoMsg(const char* hexstr)
+{
+    size_t final_len = strlen(hexstr) / 2;
+	CryptoMsg *res = CryptoMsg_new(final_len);
+
+    for (size_t i = 0, j = 0; j < final_len; i += 2, ++j)
+        res->data[j] = (hexstr[i] % 32 + 9) % 25 * 16 + (hexstr[i+1] % 32 + 9) % 25;
+
+    return res;
+}
+
+char *CryptoMsg_to_hexstr(const CryptoMsg *msg)
+{
+	char *hexstr = malloc(msg->length*2+1);
+    int off = 0;
+
+    for (size_t i = 0; i < msg->length; i++) {
+		sprintf(hexstr+off, "%02x", msg->data[i]);
+		off += 2;
+    }
+    hexstr[off] = '\0';
+
+    return hexstr;
 }

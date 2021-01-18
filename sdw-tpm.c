@@ -1,5 +1,7 @@
 #include "sdw-tpm.h"
 #include "crypto.h"
+#include <stdlib.h>
+#include <cjson/cJSON.h>
 
 void check_sys_env()
 {
@@ -141,6 +143,55 @@ void Report_free(Report *report)
 	free(report);
 }
 
+char *Report_to_json(Report *report)
+{
+	cJSON *root = cJSON_CreateObject();
+
+	char *timestamp_str = CryptoMsg_to_hexstr(report->timestamp);
+	cJSON *timestamp = cJSON_CreateString(timestamp_str);
+	free(timestamp_str);
+
+	char *nonce_str = CryptoMsg_to_hexstr(report->nonce);
+	cJSON *nonce = cJSON_CreateString(nonce_str);
+	free(nonce_str);
+
+	char *encrypted_sysci_str = CryptoMsg_to_hexstr(report->encrypted_sysci);
+	cJSON *encrypted_sysci = cJSON_CreateString(encrypted_sysci_str);
+	free(encrypted_sysci_str);
+
+	char *signature_str = CryptoMsg_to_hexstr(report->signature);
+	cJSON *signature = cJSON_CreateString(signature_str);
+	free(signature_str);
+
+	cJSON_AddItemToObject(root, "timestamp", timestamp);
+	cJSON_AddItemToObject(root, "nonce", nonce);
+	cJSON_AddItemToObject(root, "encrypted_sysci", encrypted_sysci);
+	cJSON_AddItemToObject(root, "signature", signature);
+
+	char *res = cJSON_Print(root);
+	cJSON_Delete(root);
+	return res;
+}
+
+Report *Report_parse_from_json(const char *str)
+{
+	cJSON *root = cJSON_Parse(str);
+	cJSON *timestamp = cJSON_GetObjectItemCaseSensitive(root, "timestamp");
+	cJSON *nonce = cJSON_GetObjectItemCaseSensitive(root, "nonce");
+	cJSON *encrypted_sysci = cJSON_GetObjectItemCaseSensitive(root, "encrypted_sysci");
+	cJSON *signature = cJSON_GetObjectItemCaseSensitive(root, "signature");
+
+	Report *res = malloc(sizeof(Report));
+	res->timestamp = hexstr_to_CryptoMsg(cJSON_GetStringValue(timestamp));
+	res->nonce = hexstr_to_CryptoMsg(cJSON_GetStringValue(nonce));
+	char *s = cJSON_GetStringValue(encrypted_sysci);
+	res->encrypted_sysci = hexstr_to_CryptoMsg(s);
+	res->signature = hexstr_to_CryptoMsg(cJSON_GetStringValue(signature));
+
+	cJSON_Delete(root);
+	return res;
+}
+
 void test_sysci()
 {
 	Sysci *sysci = Sysci_new();
@@ -212,11 +263,36 @@ void test_sign_and_verify()
 	Sysci_free(sysci);
 }
 
+void test_hexstr_CryptoMsg()
+{
+	Sysci *sysci = Sysci_new();
+	Sysci_print(sysci);
+	char *hexstr = CryptoMsg_to_hexstr(sysci->efi_sha256);
+	printf("%s", hexstr);
+
+	CryptoMsg_free(sysci->efi_sha256);
+	sysci->efi_sha256 = hexstr_to_CryptoMsg(hexstr);
+	Sysci_print(sysci);
+
+	free(hexstr);
+	Sysci_free(sysci);
+
+	int s = 1;
+	assert(s == 1);
+}
+
 void test_report()
 {
 	Sysci *sysci = Sysci_new();
 	Report *report = Report_new(sysci);
+
+	char *json = Report_to_json(report);
+	Report *another_report = Report_parse_from_json(json);
+
+	free(json);
+	Report_free(another_report);
 	Report_free(report);
+	Sysci_free(sysci);
 
 	int s = 1;
 	assert(s == 1);
@@ -224,10 +300,11 @@ void test_report()
 
 int main(int argc, char *argv[])
 {
-	test_sysci();
-	test_crypto();
-	test_sign_and_verify();
-	test_report();
+	/* test_sysci(); */
+	/* test_crypto(); */
+	/* test_sign_and_verify(); */
+	/* test_report(); */
+	/* test_hexstr_CryptoMsg(); */
 
     return 0;
 }
