@@ -11,10 +11,10 @@ C_FLAGS = -g
 
 all: $(EXE)
 
-proxy-p: proxy-p.o
+proxy-p: proxy-p.o coordination.o util.o $(C_HEADERS)
 	$(CC) $^ -o $@
 
-sdw-tpm: sdw-tpm.o util.o crypto.o
+sdw-tpm: sdw-tpm.o util.o crypto.o coordination.o
 	$(CC) $^ -o $@ -lcrypto -lcjson
 
 tpm2: tpm2.c

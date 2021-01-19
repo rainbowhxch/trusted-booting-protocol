@@ -5,9 +5,12 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <sys/utsname.h>
+#include <sys/wait.h>
+#include <cjson/cJSON.h>
 
 #include "util.h"
 #include "crypto.h"
+#include "coordination.h"
 
 #define PRINT_CRYPTOMSG(msg) do { print_hex(msg->data, msg->length); }while(0)
 
@@ -45,8 +48,16 @@ Sysci *Sysci_decrypt(const CryptoMsg *encrypted_sysci);
 
 void Sysci_free(Sysci *sysci);
 
-Report *Report_new(Sysci *sysci);
+Report *Report_new();
 
 void Report_free(Report *report);
+
+char *Report_to_json(Report *report);
+
+Report *Report_parse_from_json(const char *str);
+
+int *proxy_p_start();
+
+void proxy_p_finish(int *fd);
 
 #endif /* SDW_TPM_H */

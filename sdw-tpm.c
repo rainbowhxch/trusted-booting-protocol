@@ -1,7 +1,6 @@
 #include "sdw-tpm.h"
-#include "crypto.h"
-#include <stdlib.h>
-#include <cjson/cJSON.h>
+#include "coordination.h"
+#include "util.h"
 
 void check_sys_env()
 {
@@ -24,18 +23,6 @@ Sysci *Sysci_new()
 	sysci->proxy_p_sha256 = digest_file(PROXY_P_FILE_PATH);
 
 	return sysci;
-}
-
-void Sysci_print(Sysci *sysci)
-{
-	printf("Hardware identifier: \t");
-	PRINT_CRYPTOMSG(sysci->hardware_id);
-	printf("Operating system release: \t");
-	PRINT_CRYPTOMSG(sysci->system_release);
-	printf("efi sha256: \t");
-	PRINT_CRYPTOMSG(sysci->efi_sha256);
-	printf("proxy-p sha256: \t");
-	PRINT_CRYPTOMSG(sysci->proxy_p_sha256);
 }
 
 CryptoMsg *Sysci_encrypt(Sysci *sysci)
@@ -103,7 +90,7 @@ void Sysci_free(Sysci *sysci)
 	free(sysci);
 }
 
-Report *Report_new(Sysci *sysci)
+Report *Report_new()
 {
 	Report *report = malloc(sizeof(Report));
 
@@ -111,11 +98,15 @@ Report *Report_new(Sysci *sysci)
 	unsigned char *timestamp_str = (unsigned char *) &timestamp;
 	report->timestamp = CryptoMsg_new(sizeof(time_t));
 	memcpy(report->timestamp->data, timestamp_str, report->timestamp->length);
+
 	report->nonce = CryptoMsg_new(NONCE_LENGTH);
 	int r = RAND_bytes(report->nonce->data, report->nonce->length);
 	if (!r)
 		handle_errors();
+
+	Sysci *sysci = Sysci_new();
 	report->encrypted_sysci = Sysci_encrypt(sysci);
+	Sysci_free(sysci);
 
 	int need_sign_msg_len = ID.length + report->timestamp->length + \
 							report->nonce->length + report->encrypted_sysci->length;
@@ -190,6 +181,57 @@ Report *Report_parse_from_json(const char *str)
 
 	cJSON_Delete(root);
 	return res;
+}
+
+int *proxy_p_start()
+{
+	int fd_write[2], fd_read[2];
+	if (pipe(fd_write) < 0 || pipe(fd_read) <0)
+		printf("pipe error");
+
+	pid_t pid;
+	if ((pid = fork()) < 0) {
+		handle_errors();
+	} else if (pid > 0) {
+		close(fd_write[0]);
+		close(fd_read[1]);
+	} else {
+		close(fd_write[1]);
+		close(fd_read[0]);
+		if (fd_write[0] != STDIN_FILENO) {
+			if (dup2(fd_write[0], STDIN_FILENO) != STDIN_FILENO)
+				handle_errors();
+		}
+		if (fd_read[1] != STDOUT_FILENO) {
+			if (dup2(fd_read[1], STDOUT_FILENO) != STDOUT_FILENO)
+				handle_errors();
+		}
+		if (execl("./proxy-p", "proxy-p", (char *)0) < 0)
+			handle_errors();
+	}
+	int *res = malloc(sizeof(int)*2);
+	res[0] = fd_write[1];
+	res[1] = fd_read[0];
+	return res;
+}
+
+void proxy_p_finish(int *fd)
+{
+	close(fd[0]);
+	close(fd[1]);
+	free(fd);
+}
+
+void Sysci_print(Sysci *sysci)
+{
+	printf("Hardware identifier: \t");
+	PRINT_CRYPTOMSG(sysci->hardware_id);
+	printf("Operating system release: \t");
+	PRINT_CRYPTOMSG(sysci->system_release);
+	printf("efi sha256: \t");
+	PRINT_CRYPTOMSG(sysci->efi_sha256);
+	printf("proxy-p sha256: \t");
+	PRINT_CRYPTOMSG(sysci->proxy_p_sha256);
 }
 
 void test_sysci()
@@ -283,8 +325,7 @@ void test_hexstr_CryptoMsg()
 
 void test_report()
 {
-	Sysci *sysci = Sysci_new();
-	Report *report = Report_new(sysci);
+	Report *report = Report_new();
 
 	char *json = Report_to_json(report);
 	Report *another_report = Report_parse_from_json(json);
@@ -292,10 +333,35 @@ void test_report()
 	free(json);
 	Report_free(another_report);
 	Report_free(report);
-	Sysci_free(sysci);
 
 	int s = 1;
 	assert(s == 1);
+}
+
+void test_proxy_p()
+{
+	int *fd = proxy_p_start();
+
+	CoordinationMsg *msg;
+	Coordination_read_from_peer(fd[1], &msg);
+	switch (msg->type) {
+		case GET_REPORT:
+			{
+				char a[2] = "1";
+				Report *report = Report_new();
+				print_hex(report->nonce->data, report->nonce->length);
+				char *json_report = Report_to_json(report);
+				Coordination_send_to_peer(fd[0], SEND_REPORT, json_report, strlen(json_report)+1);
+				Coordination_read_from_peer(fd[1], &msg);
+				Report *parsed_report = Report_parse_from_json((const char *)msg->data);
+				print_hex(parsed_report->nonce->data, parsed_report->nonce->length);
+				break;
+			}
+		default:
+			break;
+	}
+
+	proxy_p_finish(fd);
 }
 
 int main(int argc, char *argv[])
@@ -305,6 +371,7 @@ int main(int argc, char *argv[])
 	/* test_sign_and_verify(); */
 	/* test_report(); */
 	/* test_hexstr_CryptoMsg(); */
+	test_proxy_p();
 
     return 0;
 }
