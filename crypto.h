@@ -7,6 +7,7 @@
 #include <openssl/rand.h>
 #include <openssl/bn.h>
 #include <openssl/ossl_typ.h>
+
 #include "util.h"
 
 const static int PAGE_SIZE = 4096;
@@ -34,7 +35,7 @@ CryptoMsg *rsa_pri_key_decrypt(const CryptoMsg *in, EVP_PKEY *pkey);
 
 CryptoMsg *rsa_file_digest_sign(const CryptoMsg *in, const char *pub_key_path);
 
-int rsa_digest_verify(const CryptoMsg *in, const CryptoMsg *sig, const char *pub_key_path);
+int rsa_file_digest_verify(const CryptoMsg *in, const CryptoMsg *sig, const char *pub_key_path);
 
 CryptoMsg *hexstr_to_CryptoMsg(const char* hexstr);
 

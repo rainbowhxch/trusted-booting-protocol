@@ -1,6 +1,4 @@
 #include "crypto.h"
-#include <openssl/evp.h>
-#include <stdlib.h>
 
 CryptoMsg *CryptoMsg_new(const size_t msg_len)
 {
@@ -27,9 +25,11 @@ CryptoMsg *digest_message(const CryptoMsg *in)
 	if(1 != EVP_DigestUpdate(mdctx, in->data, in->length))
 		handle_errors();
 
+	unsigned int res_len;
 	CryptoMsg *res = CryptoMsg_new(EVP_MD_size(EVP_sha256()));
-	if(1 != EVP_DigestFinal_ex(mdctx, res->data, &res->length))
+	if(1 != EVP_DigestFinal_ex(mdctx, res->data, &res_len))
 		handle_errors();
+	res->length = res_len;
 
 	EVP_MD_CTX_free(mdctx);
 	return res;
@@ -55,9 +55,11 @@ CryptoMsg *digest_file(const char *file_path)
 	}
 	fclose(fd);
 
+	unsigned int res_len;
 	CryptoMsg *res = CryptoMsg_new(EVP_MD_size(EVP_sha256()));
-	if(1 != EVP_DigestFinal_ex(mdctx, res->data, &res->length))
+	if(1 != EVP_DigestFinal_ex(mdctx, res->data, &res_len))
 		handle_errors();
+	res->length = res_len;
 
 	EVP_MD_CTX_free(mdctx);
 	return res;
@@ -167,7 +169,7 @@ CryptoMsg *rsa_file_digest_sign(const CryptoMsg *in, const char *pri_key_path)
 	return res;
 }
 
-int rsa_digest_verify(const CryptoMsg *in, const CryptoMsg *sig, const char *pub_key_path)
+int rsa_file_digest_verify(const CryptoMsg *in, const CryptoMsg *sig, const char *pub_key_path)
 {
 	FILE *fd = fopen(pub_key_path,"rb");
 	EVP_PKEY *pkey = EVP_PKEY_new();

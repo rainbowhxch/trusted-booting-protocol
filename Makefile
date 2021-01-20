@@ -2,7 +2,7 @@ C_SOURCES = $(wildcard *.c)
 C_HEADERS = $(wildcard *.h)
 
 OBJ = ${C_SOURCES:.c=.o}
-EXE = proxy-p sdw-tpm tpm2
+EXE = proxy-v proxy-p sdw-tpm
 
 CC = gcc
 GDB = gdb
@@ -11,10 +11,13 @@ C_FLAGS = -g
 
 all: $(EXE)
 
-proxy-p: proxy-p.o coordination.o util.o $(C_HEADERS)
+proxy-v: proxy-v.o socket.o util.o report.o crypto.o sysci.o
+	$(CC) $^ -o $@ -lcrypto -lcjson
+
+proxy-p: proxy-p.o coordination.o socket.o util.o
 	$(CC) $^ -o $@
 
-sdw-tpm: sdw-tpm.o util.o crypto.o coordination.o
+sdw-tpm: sdw-tpm.o util.o report.o sysci.o crypto.o coordination.o
 	$(CC) $^ -o $@ -lcrypto -lcjson
 
 tpm2: tpm2.c

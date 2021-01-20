@@ -1,4 +1,5 @@
 #include "coordination.h"
+#include "socket.h"
 #include "util.h"
 
 void CoordinationMsg_new(CoordinationMsg **msg, CoordinationMsgType type, void *data, size_t data_len)
@@ -14,7 +15,7 @@ void CoordinationMsg_distory(CoordinationMsg *msg)
 	free(msg);
 }
 
-void Coordination_unpack_data(CoordinationMsg **msg, void *data, size_t data_len)
+void Coordination_unpack_data(CoordinationMsg **msg, void *data, ssize_t data_len)
 {
 	uint8_t *off = data;
 	CoordinationMsgType *type = (CoordinationMsgType *)off;
@@ -30,12 +31,12 @@ void Coordination_send_to_peer(int fd, CoordinationMsgType type, void *data, siz
 {
 	CoordinationMsg *msg;
 	CoordinationMsg_new(&msg, type, data, data_len);
-	ssize_t write_len = write(fd, msg, sizeof(CoordinationMsg) + data_len);
+	ssize_t write_len = write(fd, msg, sizeof(CoordinationMsg) + msg->data_len);
 }
 
 void Coordination_read_from_peer(int fd, CoordinationMsg **msg)
 {
-	uint8_t buf[4096];
-	size_t read_len = read(fd, buf, 4096);
+	uint8_t buf[COORDINATION_BUFFER_SIZE];
+	ssize_t read_len = read(fd, buf, COORDINATION_BUFFER_SIZE);
 	Coordination_unpack_data(msg, buf, read_len);
 }
