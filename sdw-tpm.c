@@ -1,4 +1,6 @@
 #include "sdw-tpm.h"
+#include "coordination.h"
+#include "sysci.h"
 
 void check_sys_env()
 {
@@ -44,18 +46,6 @@ void proxy_p_finish(int *fd)
 	close(fd[0]);
 	close(fd[1]);
 	free(fd);
-}
-
-void Sysci_print(Sysci *sysci)
-{
-	printf("Hardware identifier: \t");
-	PRINT_CRYPTOMSG(sysci->hardware_id);
-	printf("Operating system release: \t");
-	PRINT_CRYPTOMSG(sysci->system_release);
-	printf("efi sha256: \t");
-	PRINT_CRYPTOMSG(sysci->efi_sha256);
-	printf("proxy-p sha256: \t");
-	PRINT_CRYPTOMSG(sysci->proxy_p_sha256);
 }
 
 void test_sysci()
@@ -149,14 +139,19 @@ void test_hexstr_CryptoMsg()
 
 void test_report()
 {
-	Report *report = Report_new();
+	Sysci *sysci = Sysci_new();
+	Report *report;
+	Report_new(sysci, &report);
 
-	char *json = Report_to_json(report);
-	Report *another_report = Report_parse_from_json(json);
+	char *json;
+	Report_to_json(report, &json);
+	Report *another_report;
+	Report_parse_from_json(json, &another_report);
 
 	free(json);
 	Report_free(another_report);
 	Report_free(report);
+	Sysci_free(sysci);
 
 	int s = 1;
 	assert(s == 1);
@@ -169,14 +164,19 @@ void test_proxy_p()
 	CoordinationMsg *msg;
 	Coordination_read_from_peer(fd[1], &msg);
 	switch (msg->type) {
-		case COORDINATION_GET_REPORT:
+		case COORDINATION_GET_SYSCI:
 			{
-				Report *report = Report_new();
-				char *json_report = Report_to_json(report);
-				Coordination_send_to_peer(fd[0], COORDINATION_SEND_REPORT, json_report, strlen(json_report)+1);
+				Sysci *sysci = Sysci_new();
+				char *json_sysci;
+
+				Sysci_to_json(sysci, &json_sysci);
+				Coordination_send_to_peer(fd[0], COORDINATION_SEND_SYSCI, json_sysci, strlen(json_sysci)+1);
+
+				free(json_sysci);
+				Sysci_free(sysci);
 				break;
 			}
-		case COORDINATION_SEND_REPORT:
+		case COORDINATION_SEND_SYSCI:
 			{
 				Coordination_read_from_peer(fd[1], &msg);
 				printf("%s", msg->data);

@@ -9,8 +9,6 @@
 #include "report.h"
 #include "coordination.h"
 
-#define PRINT_CRYPTOMSG(msg) do { print_hex(msg->data, msg->length); }while(0)
-
 void check_sys_env();
 
 int *proxy_p_start();

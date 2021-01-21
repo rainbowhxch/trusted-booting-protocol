@@ -10,7 +10,7 @@ void CoordinationMsg_new(CoordinationMsg **msg, CoordinationMsgType type, void *
 	memcpy((*msg)->data, data, (*msg)->data_len);
 }
 
-void CoordinationMsg_distory(CoordinationMsg *msg)
+void CoordinationMsg_free(CoordinationMsg *msg)
 {
 	free(msg);
 }

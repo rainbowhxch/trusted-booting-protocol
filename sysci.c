@@ -16,6 +16,15 @@ Sysci *Sysci_new()
 	return sysci;
 }
 
+void Sysci_free(Sysci *sysci)
+{
+	CryptoMsg_free(sysci->hardware_id);
+	CryptoMsg_free(sysci->system_release);
+	CryptoMsg_free(sysci->proxy_p_sha256);
+	CryptoMsg_free(sysci->efi_sha256);
+	free(sysci);
+}
+
 CryptoMsg *Sysci_encrypt(Sysci *sysci)
 {
 	CryptoMsg *encrypted_hardware_id = rsa_pub_file_encrypt(sysci->hardware_id, RSA_PUB_FILE_PATH);
@@ -72,11 +81,60 @@ Sysci *Sysci_decrypt(const CryptoMsg *encrypted_sysci)
 	return sysci;
 }
 
-void Sysci_free(Sysci *sysci)
+void Sysci_to_json(Sysci *sysci, char **sysci_json)
 {
-	CryptoMsg_free(sysci->hardware_id);
-	CryptoMsg_free(sysci->system_release);
-	CryptoMsg_free(sysci->proxy_p_sha256);
-	CryptoMsg_free(sysci->efi_sha256);
-	free(sysci);
+	cJSON *root = cJSON_CreateObject();
+
+	char *hardware_id_str = CryptoMsg_to_hexstr(sysci->hardware_id);
+	cJSON *hardware_id = cJSON_CreateString(hardware_id_str);
+	free(hardware_id_str);
+
+	char *system_release_str = CryptoMsg_to_hexstr(sysci->system_release);
+	cJSON *system_release = cJSON_CreateString(system_release_str);
+	free(system_release_str);
+
+	char *efi_sha256_str = CryptoMsg_to_hexstr(sysci->efi_sha256);
+	cJSON *efi_sha256 = cJSON_CreateString(efi_sha256_str);
+	free(efi_sha256_str);
+
+	char *proxy_p_sha256_str = CryptoMsg_to_hexstr(sysci->proxy_p_sha256);
+	cJSON *proxy_p_sha256 = cJSON_CreateString(proxy_p_sha256_str);
+	free(proxy_p_sha256_str);
+
+	cJSON_AddItemToObject(root, "hardware_id", hardware_id);
+	cJSON_AddItemToObject(root, "system_release", system_release);
+	cJSON_AddItemToObject(root, "efi_sha256", efi_sha256);
+	cJSON_AddItemToObject(root, "proxy_p_sha256", proxy_p_sha256);
+
+	(*sysci_json) = cJSON_Print(root);
+	cJSON_Delete(root);
+}
+
+void Sysci_parse_from_json(const char *str, Sysci **sysci)
+{
+	cJSON *root = cJSON_Parse(str);
+	cJSON *hardware_id = cJSON_GetObjectItem(root, "hardware_id");
+	cJSON *system_release = cJSON_GetObjectItem(root, "system_release");
+	cJSON *efi_sha256 = cJSON_GetObjectItem(root, "efi_sha256");
+	cJSON *proxy_p_sha256 = cJSON_GetObjectItem(root, "proxy_p_sha256");
+
+	(*sysci) = malloc(sizeof(Sysci));
+	(*sysci)->hardware_id = hexstr_to_CryptoMsg(cJSON_GetStringValue(hardware_id));
+	(*sysci)->system_release = hexstr_to_CryptoMsg(cJSON_GetStringValue(system_release));
+	(*sysci)->efi_sha256 = hexstr_to_CryptoMsg(cJSON_GetStringValue(efi_sha256));
+	(*sysci)->proxy_p_sha256 = hexstr_to_CryptoMsg(cJSON_GetStringValue(proxy_p_sha256));
+
+	cJSON_Delete(root);
+}
+
+void Sysci_print(Sysci *sysci)
+{
+	printf("Hardware identifier: \t");
+	PRINT_CRYPTOMSG(sysci->hardware_id);
+	printf("Operating system release: \t");
+	PRINT_CRYPTOMSG(sysci->system_release);
+	printf("efi sha256: \t");
+	PRINT_CRYPTOMSG(sysci->efi_sha256);
+	printf("proxy-p sha256: \t");
+	PRINT_CRYPTOMSG(sysci->proxy_p_sha256);
 }

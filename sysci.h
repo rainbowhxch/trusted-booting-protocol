@@ -2,8 +2,11 @@
 #define SYSCI_H
 
 #include <sys/utsname.h>
+#include <cjson/cJSON.h>
 
 #include "crypto.h"
+
+#define PRINT_CRYPTOMSG(msg) do { print_hex(msg->data, msg->length); }while(0)
 
 const static char *PROXY_P_FILE_PATH = "./proxy-p";
 const static char *EFI_FILE_PATH = "/boot/EFI/arch/grubx64.efi";
@@ -20,12 +23,16 @@ typedef struct {
 
 Sysci *Sysci_new();
 
+void Sysci_free(Sysci *sysci);
+
 void Sysci_print(Sysci *sysci);
 
 CryptoMsg *Sysci_encrypt(Sysci *sysci);
 
 Sysci *Sysci_decrypt(const CryptoMsg *encrypted_sysci);
 
-void Sysci_free(Sysci *sysci);
+void Sysci_to_json(Sysci *sysci, char **sysci_json);
+
+void Sysci_parse_from_json(const char *str, Sysci **sysci);
 
 #endif /* SYSCI_H */

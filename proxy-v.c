@@ -1,6 +1,4 @@
 #include "proxy-v.h"
-#include <stdio.h>
-#include <assert.h>
 
 int main(int argc, char *argv[])
 {
@@ -15,7 +13,9 @@ int main(int argc, char *argv[])
 	switch (sock_msg->type) {
 		case SOCKET_SEND_REPORT:
 			{
-				Report *report = Report_parse_from_json((const char *)sock_msg->data);
+				Report *report;
+				Report_parse_from_json((const char *)sock_msg->data, &report);
+				SocketMsg_free(sock_msg);
 
 				int need_verify_msg_len = ID.length + report->timestamp->length + \
 										report->nonce->length + report->encrypted_sysci->length;
@@ -29,8 +29,12 @@ int main(int argc, char *argv[])
 				off += report->nonce->length;
 				memcpy(off, report->encrypted_sysci->data, report->encrypted_sysci->length);
 				int verify_res = rsa_file_digest_verify(need_verify_msg, report->signature, RSA_PUB_FILE_PATH);
+				CryptoMsg_free(need_verify_msg);
 
 				assert(verify_res == 1);
+
+				Sysci *sysci = Sysci_decrypt(report->encrypted_sysci);
+				Sysci_print(sysci);
 
 				break;
 			}

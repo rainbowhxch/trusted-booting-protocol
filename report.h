@@ -16,13 +16,13 @@ typedef struct {
 	CryptoMsg *signature;
 } Report;
 
-Report *Report_new();
+void Report_new(Sysci *sysci, Report **report);
 
 void Report_free(Report *report);
 
-char *Report_to_json(Report *report);
+void Report_to_json(Report *report, char **report_json);
 
-Report *Report_parse_from_json(const char *str);
+void Report_parse_from_json(const char *str, Report **report);
 
 
 #endif /* REPORT_H */

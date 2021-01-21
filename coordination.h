@@ -10,8 +10,8 @@
 const static size_t COORDINATION_BUFFER_SIZE = 4096;
 
 typedef enum {
-	COORDINATION_GET_REPORT,
-	COORDINATION_SEND_REPORT
+	COORDINATION_GET_SYSCI,
+	COORDINATION_SEND_SYSCI
 } CoordinationMsgType;
 
 typedef struct {
@@ -22,7 +22,7 @@ typedef struct {
 
 void CoordinationMsg_new(CoordinationMsg **msg, CoordinationMsgType type, void *data, size_t data_len);
 
-void CoordinationMsg_distory(CoordinationMsg *msg);
+void CoordinationMsg_free(CoordinationMsg *msg);
 
 void Coordination_unpack_data(CoordinationMsg **msg, void *data, ssize_t data_len);
 

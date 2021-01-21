@@ -1,10 +1,4 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <tss2/tss2_common.h>
-#include <tss2/tss2_fapi.h>
-#include <tss2/tss2_esys.h>
+#include "tpm2.h"
 
 #define goto_if_error(r,msg) \
     if (r != TSS2_RC_SUCCESS) { \
@@ -103,6 +97,63 @@ void test_esys()
                        pcrHandle_handle,
                        ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE);
     goto_if_error(r, "PCR_Reset");
+
+    Esys_Free(pcrSelectionOut);
+    Esys_Free(pcrValues);
+	Esys_Finalize(&ctx);
+}
+
+void TPM2_pcr_extend(Sysci *sysci, CryptoMsg **pcr_digest)
+{
+	ESYS_CONTEXT *ctx;
+	Esys_Initialize(&ctx, NULL, NULL);
+
+    TPML_PCR_SELECTION pcrSelectionIn = {
+        .count = 1,
+        .pcrSelections = {
+            { .hash = TPM2_ALG_SHA256,
+              .sizeofSelect = 1,
+              .pcrSelect = { 16 }
+            }
+        }
+    };
+    TPML_PCR_SELECTION *pcrSelectionOut;
+    TPML_DIGEST *pcrValues;
+    UINT32 pcrUpdateCounter;
+    TSS2_RC r;
+
+    TPML_DIGEST_VALUES digests
+        = {
+        .count = 1,
+        .digests = {
+            {
+                .hashAlg = TPM2_ALG_SHA256,
+                .digest = {
+                    .sha256 = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+                              11, 12, 13, 14, 15, 16, 17, 18, 19}
+                }
+            },
+        }};
+
+    ESYS_TR pcrHandle_handle = 0;
+    r = Esys_PCR_Reset(ctx,
+                       pcrHandle_handle,
+                       ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE);
+    goto_if_error(r, "PCR_Reset");
+
+    r = Esys_PCR_Extend(ctx,
+                        pcrHandle_handle,
+                        ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE, &digests);
+    goto_if_error(r, "PCR_Extend");
+
+    r = Esys_PCR_Read(ctx,
+                      ESYS_TR_NONE,
+                      ESYS_TR_NONE,
+                      ESYS_TR_NONE,
+                      &pcrSelectionIn,
+                      &pcrUpdateCounter, &pcrSelectionOut, &pcrValues);
+	goto_if_error(r, "PCR_Read");
+    print_hex(pcrValues->digests[0].buffer, pcrValues->digests[0].size);
 
     Esys_Free(pcrSelectionOut);
     Esys_Free(pcrValues);
