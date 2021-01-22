@@ -24,8 +24,8 @@ proxy-p: proxy-p.o coordination.o socket.o util.o crypto.o sysci.o report.o
 sdw-tpm: sdw-tpm.o util.o crypto.o coordination.o report.o sysci.o
 	$(CC) $^ -o $@ -lcrypto -lcjson
 
-tpm2: tpm2.c
-	$(CC) $^ -o $@ -ltss2-fapi -ltss2-esys
+tpm2: tpm2.o util.o crypto.o coordination.o report.o sysci.o
+	$(CC) $^ -o $@ -ltss2-fapi -ltss2-esys -ltss2-tcti-swtpm -ltss2-tcti-mssim -ltss2-tcti-device -lcrypto -lcjson
 
 %.o: %.c $(C_HEADERS)
 	$(CC) -c $< -o $@ $(C_FLAGS)
