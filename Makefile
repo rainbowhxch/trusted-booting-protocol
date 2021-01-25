@@ -25,7 +25,7 @@ sdw-tpm: sdw-tpm.o util.o crypto.o coordination.o report.o sysci.o
 	$(CC) $^ -o $@ -lcrypto -lcjson
 
 tpm2: tpm2.o util.o crypto.o coordination.o report.o sysci.o
-	$(CC) $^ -o $@ -ltss2-fapi -ltss2-esys -ltss2-tcti-swtpm -ltss2-tcti-mssim -ltss2-tcti-device -lcrypto -lcjson
+	$(CC) $^ -o $@ -ltss2-fapi -ltss2-esys -ltss2-tcti-swtpm -ltss2-tcti-mssim -ltss2-tcti-device -lcrypto -lcjson -ltss2-sys
 
 %.o: %.c $(C_HEADERS)
 	$(CC) -c $< -o $@ $(C_FLAGS)

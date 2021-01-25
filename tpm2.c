@@ -1,186 +1,7 @@
 #include "tpm2.h"
+#include <tss2/tss2_esys.h>
 
-#define goto_if_error(r,msg) \
-    if (r != TSS2_RC_SUCCESS) { \
-        printf("%s", msg); \
-    }
-
-#define TSSWG_INTEROP 1
-#define TSS_SAPI_FIRST_FAMILY 2
-#define TSS_SAPI_FIRST_LEVEL 1
-#define TSS_SAPI_FIRST_VERSION 108
-
-/* Default TCTI */
-#define TCTI_DEFAULT      SOCKET_TCTI
-
-/* Defaults for Device TCTI */
-#define DEVICE_PATH_DEFAULT "/dev/tpm0"
-
-/* Defaults for Socket TCTI connections */
-#define HOSTNAME_DEFAULT "127.0.0.1"
-#define PORT_DEFAULT     2321
-
-#define _HOST_NAME_MAX _POSIX_HOST_NAME_MAX
-#define TCTI_SWTPM_CONF_MAX (_HOST_NAME_MAX + 16)
-#define TCTI_MSSIM_CONF_MAX (_HOST_NAME_MAX + 16)
-
-#define TCTI_PROXY_MAGIC 0x5250584f0a000000ULL /* 'PROXY\0\0\0' */
-#define TCTI_PROXY_VERSION 0x1
-
-typedef enum {
-    UNKNOWN_TCTI,
-    DEVICE_TCTI,
-    SOCKET_TCTI,
-    SWTPM_TCTI,
-    FUZZING_TCTI,
-    N_TCTI,
-} TCTI_TYPE;
-
-typedef struct {
-    TCTI_TYPE tcti_type;
-    const char *device_file;
-    const char *socket_address;
-    uint16_t socket_port;
-} test_opts_t;
-
-enum state {
-    forwarding,
-    intercepting
-};
-
-typedef struct {
-    uint64_t magic;
-    uint32_t version;
-    TSS2_TCTI_TRANSMIT_FCN transmit;
-    TSS2_TCTI_RECEIVE_FCN receive;
-    TSS2_RC (*finalize) (TSS2_TCTI_CONTEXT *tctiContext);
-    TSS2_RC (*cancel) (TSS2_TCTI_CONTEXT *tctiContext);
-    TSS2_RC (*getPollHandles) (TSS2_TCTI_CONTEXT *tctiContext,
-              TSS2_TCTI_POLL_HANDLE *handles, size_t *num_handles);
-    TSS2_RC (*setLocality) (TSS2_TCTI_CONTEXT *tctiContext, uint8_t locality);
-    TSS2_TCTI_CONTEXT *tctiInner;
-    enum state state;
-} TSS2_TCTI_CONTEXT_PROXY;
-
-TSS2_RC
-(*transmit_hook) (const uint8_t *command_buffer, size_t command_size) = NULL;
-
-void
-tcti_teardown(TSS2_TCTI_CONTEXT * tcti_context)
-{
-    if (tcti_context) {
-        Tss2_Tcti_Finalize(tcti_context);
-        free(tcti_context);
-    }
-}
-
-TSS2_TCTI_CONTEXT *
-tcti_swtpm_init(char const *host, uint16_t port)
-{
-    size_t size;
-    TSS2_RC rc;
-    TSS2_TCTI_CONTEXT *tcti_ctx;
-    char conf_str[TCTI_SWTPM_CONF_MAX] = { 0 };
-
-    snprintf(conf_str, TCTI_SWTPM_CONF_MAX, "host=%s,port=%" PRIu16, host, port);
-    rc = Tss2_Tcti_Swtpm_Init(NULL, &size, conf_str);
-    if (rc != TSS2_RC_SUCCESS) {
-        fprintf(stderr, "Faled to get allocation size for tcti context: "
-                "0x%x\n", rc);
-        return NULL;
-    }
-    tcti_ctx = (TSS2_TCTI_CONTEXT *) calloc(1, size);
-    if (tcti_ctx == NULL) {
-        fprintf(stderr, "Allocation for tcti context failed: %s\n",
-                strerror(errno));
-        return NULL;
-    }
-    rc = Tss2_Tcti_Swtpm_Init(tcti_ctx, &size, conf_str);
-    if (rc != TSS2_RC_SUCCESS) {
-        fprintf(stderr, "Failed to initialize tcti context: 0x%x\n", rc);
-        free(tcti_ctx);
-        return NULL;
-    }
-    return tcti_ctx;
-}
-
-TSS2_TCTI_CONTEXT *
-tcti_device_init(char const *device_path)
-{
-    size_t size;
-    TSS2_RC rc;
-    TSS2_TCTI_CONTEXT *tcti_ctx;
-
-    rc = Tss2_Tcti_Device_Init(NULL, &size, 0);
-    if (rc != TSS2_RC_SUCCESS) {
-        fprintf(stderr,
-                "Failed to get allocation size for device tcti context: "
-                "0x%x\n", rc);
-        return NULL;
-    }
-    tcti_ctx = (TSS2_TCTI_CONTEXT *) calloc(1, size);
-    if (tcti_ctx == NULL) {
-        fprintf(stderr,
-                "Allocation for device TCTI context failed: %s\n",
-                strerror(errno));
-        return NULL;
-    }
-    rc = Tss2_Tcti_Device_Init(tcti_ctx, &size, device_path);
-    if (rc != TSS2_RC_SUCCESS) {
-        fprintf(stderr, "Failed to initialize device TCTI context: 0x%x\n", rc);
-        free(tcti_ctx);
-        return NULL;
-    }
-    return tcti_ctx;
-}
-
-TSS2_TCTI_CONTEXT *
-tcti_socket_init(char const *host, uint16_t port)
-{
-    size_t size;
-    TSS2_RC rc;
-    TSS2_TCTI_CONTEXT *tcti_ctx;
-    char conf_str[TCTI_MSSIM_CONF_MAX] = { 0 };
-
-    snprintf(conf_str, TCTI_MSSIM_CONF_MAX, "host=%s,port=%" PRIu16, host, port);
-    rc = Tss2_Tcti_Mssim_Init(NULL, &size, conf_str);
-    if (rc != TSS2_RC_SUCCESS) {
-        fprintf(stderr, "Faled to get allocation size for tcti context: "
-                "0x%x\n", rc);
-        return NULL;
-    }
-    tcti_ctx = (TSS2_TCTI_CONTEXT *) calloc(1, size);
-    if (tcti_ctx == NULL) {
-        fprintf(stderr, "Allocation for tcti context failed: %s\n",
-                strerror(errno));
-        return NULL;
-    }
-    rc = Tss2_Tcti_Mssim_Init(tcti_ctx, &size, conf_str);
-    if (rc != TSS2_RC_SUCCESS) {
-        fprintf(stderr, "Failed to initialize tcti context: 0x%x\n", rc);
-        free(tcti_ctx);
-        return NULL;
-    }
-    return tcti_ctx;
-}
-
-TSS2_TCTI_CONTEXT *
-tcti_init_from_opts(test_opts_t * options)
-{
-    switch (options->tcti_type) {
-    case DEVICE_TCTI:
-        return tcti_device_init(options->device_file);
-    case SOCKET_TCTI:
-        return tcti_socket_init(options->socket_address, options->socket_port);
-    case SWTPM_TCTI:
-       return tcti_swtpm_init(options->socket_address, options->socket_port);
-    default:
-        return NULL;
-    }
-}
-
-static TSS2_TCTI_CONTEXT_PROXY*
-tcti_proxy_cast (TSS2_TCTI_CONTEXT *ctx)
+TSS2_TCTI_CONTEXT_PROXY *tcti_proxy_cast (TSS2_TCTI_CONTEXT *ctx)
 {
     TSS2_TCTI_CONTEXT_PROXY *ctxi = (TSS2_TCTI_CONTEXT_PROXY*)ctx;
     if (ctxi == NULL || ctxi->magic != TCTI_PROXY_MAGIC) {
@@ -190,12 +11,7 @@ tcti_proxy_cast (TSS2_TCTI_CONTEXT *ctx)
     return ctxi;
 }
 
-static TSS2_RC
-tcti_proxy_transmit(
-    TSS2_TCTI_CONTEXT *tctiContext,
-    size_t command_size,
-    const uint8_t *command_buffer
-    )
+TSS2_RC tcti_proxy_transmit(TSS2_TCTI_CONTEXT *tctiContext, size_t command_size, const uint8_t *command_buffer)
 {
     TSS2_RC rval;
     TSS2_TCTI_CONTEXT_PROXY *tcti_proxy = tcti_proxy_cast(tctiContext);
@@ -222,19 +38,7 @@ tcti_proxy_transmit(
     return rval;
 }
 
-uint8_t yielded_response[] = {
-    0x80, 0x01,             /* TPM_ST_NO_SESSION */
-    0x00, 0x00, 0x00, 0x0A, /* Response Size 10 */
-    0x00, 0x00, 0x09, 0x08  /* TPM_RC_YIELDED */
-};
-
-static TSS2_RC
-tcti_proxy_receive(
-    TSS2_TCTI_CONTEXT *tctiContext,
-    size_t *response_size,
-    uint8_t *response_buffer,
-    int32_t timeout
-    )
+TSS2_RC tcti_proxy_receive(TSS2_TCTI_CONTEXT *tctiContext, size_t *response_size, uint8_t *response_buffer, int32_t timeout)
 {
     TSS2_RC rval;
     TSS2_TCTI_CONTEXT_PROXY *tcti_proxy = tcti_proxy_cast(tctiContext);
@@ -264,18 +68,12 @@ tcti_proxy_receive(
     return rval;
 }
 
-static void
-tcti_proxy_finalize(
-    TSS2_TCTI_CONTEXT *tctiContext)
+void tcti_proxy_finalize(TSS2_TCTI_CONTEXT *tctiContext)
 {
     memset(tctiContext, 0, sizeof(TSS2_TCTI_CONTEXT_PROXY));
 }
 
-static TSS2_RC
-tcti_proxy_initialize(
-    TSS2_TCTI_CONTEXT *tctiContext,
-    size_t *contextSize,
-    TSS2_TCTI_CONTEXT *tctiInner)
+TSS2_RC tcti_proxy_initialize(TSS2_TCTI_CONTEXT *tctiContext, size_t *contextSize, TSS2_TCTI_CONTEXT *tctiInner)
 {
     TSS2_TCTI_CONTEXT_PROXY *tcti_proxy =
         (TSS2_TCTI_CONTEXT_PROXY*) tctiContext;
@@ -303,19 +101,192 @@ tcti_proxy_initialize(
     return TSS2_RC_SUCCESS;
 }
 
-void TPM2_init_mssim(TSS2_TCTI_CONTEXT **tcti_context, TSS2_TCTI_CONTEXT **tcti_inner)
+TSS2_TCTI_CONTEXT *tcti_socket_init(char const *host, uint16_t port)
+{
+    size_t size;
+    TSS2_RC rc;
+    TSS2_TCTI_CONTEXT *tcti_ctx;
+    char conf_str[TCTI_MSSIM_CONF_MAX] = { 0 };
+
+    snprintf(conf_str, TCTI_MSSIM_CONF_MAX, "host=%s,port=%" PRIu16, host, port);
+    rc = Tss2_Tcti_Mssim_Init(NULL, &size, conf_str);
+    if (rc != TSS2_RC_SUCCESS) {
+        fprintf(stderr, "Faled to get allocation size for tcti context: "
+                "0x%x\n", rc);
+        return NULL;
+    }
+    tcti_ctx = (TSS2_TCTI_CONTEXT *) calloc(1, size);
+    if (tcti_ctx == NULL) {
+        fprintf(stderr, "Allocation for tcti context failed: %s\n",
+                strerror(errno));
+        return NULL;
+    }
+    rc = Tss2_Tcti_Mssim_Init(tcti_ctx, &size, conf_str);
+    if (rc != TSS2_RC_SUCCESS) {
+        fprintf(stderr, "Failed to initialize tcti context: 0x%x\n", rc);
+        free(tcti_ctx);
+        return NULL;
+    }
+    return tcti_ctx;
+}
+
+TSS2_TCTI_CONTEXT *tcti_init_from_opts(test_opts_t * options)
+{
+    switch (options->tcti_type) {
+    case SOCKET_TCTI:
+        return tcti_socket_init(options->socket_address, options->socket_port);
+    default:
+        return NULL;
+    }
+}
+
+void tcti_teardown(TSS2_TCTI_CONTEXT * tcti_context)
+{
+    if (tcti_context) {
+        Tss2_Tcti_Finalize(tcti_context);
+        free(tcti_context);
+    }
+}
+
+UINT16 GetDigestSize(TPM2_ALG_ID hash)
+{
+    switch (hash) {
+        case TPM2_ALG_SHA1:
+            return TPM2_SHA1_DIGEST_SIZE;
+        case TPM2_ALG_SHA256:
+            return TPM2_SHA256_DIGEST_SIZE;
+        case TPM2_ALG_SHA384:
+            return TPM2_SHA384_DIGEST_SIZE;
+        case TPM2_ALG_SHA512:
+            return TPM2_SHA512_DIGEST_SIZE;
+        case TPM2_ALG_SM3_256:
+            return TPM2_SM3_256_DIGEST_SIZE;
+        default:
+            return 0;
+    }
+}
+
+static TSS2_RC create_policy_session(TSS2_SYS_CONTEXT *sys_ctx, TPMI_SH_AUTH_SESSION *handle)
+{
+    TSS2_RC rc;
+    TPM2B_ENCRYPTED_SECRET salt = { 0 };
+    TPM2B_NONCE nonce = {
+        .size = GetDigestSize(TPM2_ALG_SHA1),
+    };
+    TPM2B_NONCE nonce_tpm = { 0 };
+    TPMT_SYM_DEF symmetric = {
+        .algorithm = TPM2_ALG_NULL,
+    };
+
+    rc = Tss2_Sys_StartAuthSession (sys_ctx,
+                                    TPM2_RH_NULL,
+                                    TPM2_RH_NULL,
+                                    0,
+                                    &nonce,
+                                    &salt,
+                                    TPM2_SE_POLICY,
+                                    &symmetric,
+                                    TPM2_ALG_SHA1,
+                                    handle,
+                                    &nonce_tpm,
+                                    0);
+    goto_if_error (rc, "Tss2_Sys_StartAuthSession");
+    return TSS2_RC_SUCCESS;
+}
+
+TSS2_SYS_CONTEXT *sys_init_from_tcti_ctx(TSS2_TCTI_CONTEXT *tcti_ctx)
+{
+    TSS2_SYS_CONTEXT *sys_ctx;
+    TSS2_RC rc;
+    size_t size;
+    TSS2_ABI_VERSION abi_version = {
+        .tssCreator = 1,
+        .tssFamily = 2,
+        .tssLevel = 1,
+        .tssVersion = 108,
+    };
+
+    size = Tss2_Sys_GetContextSize(0);
+    sys_ctx = (TSS2_SYS_CONTEXT *) calloc(1, size);
+    if (sys_ctx == NULL) {
+        fprintf(stderr,
+                "Failed to allocate 0x%zx bytes for the SYS context\n", size);
+        return NULL;
+    }
+    rc = Tss2_Sys_Initialize(sys_ctx, size, tcti_ctx, &abi_version);
+    if (rc != TSS2_RC_SUCCESS) {
+        fprintf(stderr, "Failed to initialize SYS context: 0x%x\n", rc);
+        free(sys_ctx);
+        return NULL;
+    }
+    return sys_ctx;
+}
+
+TSS2_SYS_CONTEXT *sys_init_from_opts(test_opts_t *options)
+{
+    TSS2_TCTI_CONTEXT *tcti_ctx;
+    TSS2_SYS_CONTEXT *sys_ctx;
+
+    tcti_ctx = tcti_init_from_opts(options);
+    if (tcti_ctx == NULL)
+        return NULL;
+    sys_ctx = sys_init_from_tcti_ctx(tcti_ctx);
+    if (sys_ctx == NULL)
+        return NULL;
+    return sys_ctx;
+}
+
+void sys_teardown(TSS2_SYS_CONTEXT * sys_context)
+{
+    Tss2_Sys_Finalize(sys_context);
+    free(sys_context);
+}
+
+void sys_teardown_full(TSS2_SYS_CONTEXT * sys_context)
+{
+    TSS2_TCTI_CONTEXT *tcti_context = NULL;
+    TSS2_RC rc;
+
+    rc = Tss2_Sys_GetTctiContext(sys_context, &tcti_context);
+    if (rc != TSS2_RC_SUCCESS)
+        return;
+
+    sys_teardown(sys_context);
+    tcti_teardown(tcti_context);
+}
+
+void esys_init_from_tcti_ctx(TSS2_TCTI_CONTEXT *tcti_context, ESYS_CONTEXT **ctx)
+{
+    TSS2_RC rc;
+    TSS2_ABI_VERSION abiVersion =
+        { TSSWG_INTEROP, TSS_SAPI_FIRST_FAMILY, TSS_SAPI_FIRST_LEVEL,
+TSS_SAPI_FIRST_VERSION };
+
+	rc = Esys_Initialize(ctx, tcti_context, &abiVersion);
+    if (rc != TSS2_RC_SUCCESS) {
+        printf("Esys_Initialize FAILED! Response Code : 0x%x", rc);
+        return;
+    }
+    rc = Esys_Startup(*ctx, TPM2_SU_CLEAR);
+    if (rc != TSS2_RC_SUCCESS && rc != TPM2_RC_INITIALIZE) {
+        printf("Esys_Startup FAILED! Response Code : 0x%x", rc);
+        return;
+    }
+
+    rc = Esys_SetTimeout(*ctx, TSS2_TCTI_TIMEOUT_BLOCK);
+    if (rc != TSS2_RC_SUCCESS) {
+        printf("Esys_SetTimeout FAILED! Response Code : 0x%x", rc);
+        return;
+    }
+}
+
+void esys_init_from_opts(test_opts_t *opts, ESYS_CONTEXT **esys_ctx, TSS2_TCTI_CONTEXT **tcti_inner)
 {
     TSS2_RC rc;
     size_t tcti_size;
+    TSS2_TCTI_CONTEXT *tcti_ctx;
 
-    test_opts_t opts = {
-        .tcti_type = TCTI_DEFAULT,
-        .device_file = DEVICE_PATH_DEFAULT,
-        .socket_address = HOSTNAME_DEFAULT,
-        .socket_port = PORT_DEFAULT,
-    };
-
-    (*tcti_inner) = tcti_init_from_opts(&opts);
+    (*tcti_inner) = tcti_init_from_opts(opts);
     if ((*tcti_inner) == NULL) {
         printf("TPM Startup FAILED! Error tcti init");
         exit(1);
@@ -327,197 +298,65 @@ void TPM2_init_mssim(TSS2_TCTI_CONTEXT **tcti_context, TSS2_TCTI_CONTEXT **tcti_
         exit(1);
     }
 
-    (*tcti_context) = calloc(1, tcti_size);
+    tcti_ctx = calloc(1, tcti_size);
     if ((*tcti_inner) == NULL) {
         printf("TPM Startup FAILED! Error tcti init");
         exit(1);
     }
-    rc = tcti_proxy_initialize((*tcti_context), &tcti_size, (*tcti_inner));
+    rc = tcti_proxy_initialize(tcti_ctx, &tcti_size, (*tcti_inner));
     if (rc != TSS2_RC_SUCCESS) {
         printf("tcti initialization FAILED! Response Code : 0x%x", rc);
         exit(1);
     }
+
+    esys_init_from_tcti_ctx(tcti_ctx, esys_ctx);
 }
 
-void test_esys()
+void esys_teardown(ESYS_CONTEXT *esys_ctx)
 {
+    Esys_Finalize(&esys_ctx);
+    free(esys_ctx);
+}
+
+void esys_teardown_full(ESYS_CONTEXT *esys_ctx, TSS2_TCTI_CONTEXT *tcti_inner)
+{
+    TSS2_TCTI_CONTEXT *tcti_context = NULL;
     TSS2_RC rc;
-	ESYS_CONTEXT *ctx;
-    TSS2_ABI_VERSION abiVersion =
-        { TSSWG_INTEROP, TSS_SAPI_FIRST_FAMILY, TSS_SAPI_FIRST_LEVEL,
-TSS_SAPI_FIRST_VERSION };
-    TSS2_TCTI_CONTEXT *tcti_context;
-    TSS2_TCTI_CONTEXT *tcti_inner;
-    TPM2_init_mssim(&tcti_context, &tcti_inner);
 
-	rc = Esys_Initialize(&ctx, tcti_context, &abiVersion);
-    if (rc != TSS2_RC_SUCCESS) {
-        printf("Esys_Initialize FAILED! Response Code : 0x%x", rc);
+    rc = Esys_GetTcti(esys_ctx, &tcti_context);
+    if (rc != TSS2_RC_SUCCESS)
         return;
-    }
-    rc = Esys_Startup(ctx, TPM2_SU_CLEAR);
-    if (rc != TSS2_RC_SUCCESS && rc != TPM2_RC_INITIALIZE) {
-        printf("Esys_Startup FAILED! Response Code : 0x%x", rc);
-        return;
-    }
 
-    rc = Esys_SetTimeout(ctx, TSS2_TCTI_TIMEOUT_BLOCK);
-    if (rc != TSS2_RC_SUCCESS) {
-        printf("Esys_SetTimeout FAILED! Response Code : 0x%x", rc);
-        return;
-    }
+    esys_teardown(esys_ctx);
+    tcti_teardown(tcti_context);
+    tcti_teardown(tcti_inner);
+}
 
-    TSS2_RC r;
-    ESYS_TR nvHandle = ESYS_TR_NONE;
-
-    TPM2B_NV_PUBLIC *nvPublic = NULL;
-    TPM2B_NAME *nvName = NULL;
-    TPM2B_MAX_NV_BUFFER *nv_test_data2 = NULL;
-
-    TPM2B_AUTH auth = {.size = 20,
-                       .buffer={10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                                20, 21, 22, 23, 24, 25, 26, 27, 28, 29}};
-
-    TPM2B_NV_PUBLIC publicInfo = {
-        .size = 0,
-        .nvPublic = {
-            .nvIndex =TPM2_NV_INDEX_FIRST,
-            .nameAlg = TPM2_ALG_SHA1,
-            .attributes = (
-                TPMA_NV_OWNERWRITE |
-                TPMA_NV_AUTHWRITE |
-                TPMA_NV_WRITE_STCLEAR |
-                TPMA_NV_READ_STCLEAR |
-                TPMA_NV_AUTHREAD |
-                TPMA_NV_OWNERREAD
-                ),
-            .authPolicy = {
-                 .size = 0,
-                 .buffer = {},
-             },
-            .dataSize = 32,
-        }
+void TPM2_esys_context_init(ESYS_CONTEXT **esys_ctx, TSS2_TCTI_CONTEXT **tcti_inner)
+{
+    int ret;
+    test_opts_t opts = {
+        .tcti_type = TCTI_DEFAULT,
+        .device_file = DEVICE_PATH_DEFAULT,
+        .socket_address = HOSTNAME_DEFAULT,
+        .socket_port = PORT_DEFAULT,
     };
 
-    r = Esys_NV_DefineSpace(ctx,
-                            ESYS_TR_RH_OWNER,
-                            ESYS_TR_PASSWORD,
-                            ESYS_TR_NONE,
-                            ESYS_TR_NONE,
-                            &auth,
-                            &publicInfo,
-                            &nvHandle);
-
-    goto_if_error(r, "Error esys define nv space");
-
-    UINT16 offset = 0;
-    TPM2B_MAX_NV_BUFFER nv_test_data = { .size = 20,
-                                         .buffer={0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0,
-                                                  1, 2, 3, 4, 5, 6, 7, 8, 9}};
-
-    r = Esys_NV_ReadPublic(ctx,
-                           nvHandle,
-                           ESYS_TR_NONE,
-                           ESYS_TR_NONE,
-                           ESYS_TR_NONE,
-                           &nvPublic,
-                           &nvName);
-    goto_if_error(r, "Error: nv read public");
-
-    r = Esys_NV_Write(ctx,
-                      nvHandle,
-                      nvHandle,
-                      ESYS_TR_PASSWORD,
-                      ESYS_TR_NONE,
-                      ESYS_TR_NONE,
-                      &nv_test_data,
-                      offset);
-
-    goto_if_error(r, "Error esys nv write");
-
-    Esys_Free(nvPublic);
-    Esys_Free(nvName);
-
-    r = Esys_NV_ReadPublic(ctx,
-                           nvHandle,
-                           ESYS_TR_NONE,
-                           ESYS_TR_NONE,
-                           ESYS_TR_NONE,
-                           &nvPublic,
-                           &nvName);
-    goto_if_error(r, "Error: nv read public");
-
-
-    r = Esys_NV_Read(ctx,
-                     nvHandle,
-                     nvHandle,
-                     ESYS_TR_PASSWORD,
-                     ESYS_TR_NONE,
-                     ESYS_TR_NONE,
-                     20,
-                     0,
-                     &nv_test_data2);
-
-    goto_if_error(r, "Error esys nv read");
-    print_hex(nv_test_data2->buffer, nv_test_data2->size);
-
-    r = Esys_NV_ReadPublic(ctx,
-                           nvHandle,
-                           ESYS_TR_NONE,
-                           ESYS_TR_NONE,
-                           ESYS_TR_NONE,
-                           &nvPublic,
-                           &nvName);
-    goto_if_error(r, "Error: nv read public");
-
-    r = Esys_NV_UndefineSpace(ctx,
-                              ESYS_TR_RH_OWNER,
-                              nvHandle,
-                              ESYS_TR_PASSWORD,
-                              ESYS_TR_NONE,
-                              ESYS_TR_NONE
-                              );
-    goto_if_error(r, "Error: NV_UndefineSpace");
-
-
-    Esys_Free(nvPublic);
-    Esys_Free(nvName);
-
-    Esys_Free(nv_test_data2);
-
-	Esys_Finalize(&ctx);
-    tcti_teardown(tcti_inner);
-    tcti_teardown(tcti_context);
+    esys_init_from_opts(&opts, esys_ctx, tcti_inner);
+    if ((*esys_ctx) == NULL) {
+        printf("SYS context not initialized");
+        exit(0);
+    }
 }
 
-void TPM2_pcr_extend(Sysci *sysci, CryptoMsg **pcr_digest)
+void TPM2_esys_context_teardown(ESYS_CONTEXT *esys_ctx, TSS2_TCTI_CONTEXT *tcti_inner)
+{
+    esys_teardown_full(esys_ctx, tcti_inner);
+}
+
+void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_digest)
 {
     TSS2_RC rc;
-	ESYS_CONTEXT *ctx;
-    TSS2_ABI_VERSION abiVersion =
-        { TSSWG_INTEROP, TSS_SAPI_FIRST_FAMILY, TSS_SAPI_FIRST_LEVEL,
-TSS_SAPI_FIRST_VERSION };
-    TSS2_TCTI_CONTEXT *tcti_context;
-    TSS2_TCTI_CONTEXT *tcti_inner;
-    TPM2_init_mssim(&tcti_context, &tcti_inner);
-
-	rc = Esys_Initialize(&ctx, tcti_context, &abiVersion);
-    if (rc != TSS2_RC_SUCCESS) {
-        printf("Esys_Initialize FAILED! Response Code : 0x%x", rc);
-        return;
-    }
-    rc = Esys_Startup(ctx, TPM2_SU_CLEAR);
-    if (rc != TSS2_RC_SUCCESS && rc != TPM2_RC_INITIALIZE) {
-        printf("Esys_Startup FAILED! Response Code : 0x%x", rc);
-        return;
-    }
-
-    rc = Esys_SetTimeout(ctx, TSS2_TCTI_TIMEOUT_BLOCK);
-    if (rc != TSS2_RC_SUCCESS) {
-        printf("Esys_SetTimeout FAILED! Response Code : 0x%x", rc);
-        return;
-    }
-
     TPML_PCR_SELECTION *pcrSelectionOut = NULL;
     TPML_DIGEST *pcrValues = NULL;
 
@@ -606,18 +445,264 @@ TSS_SAPI_FIRST_VERSION };
 
     Esys_Free(pcrSelectionOut);
     Esys_Free(pcrValues);
-	Esys_Finalize(&ctx);
-    tcti_teardown(tcti_inner);
-    tcti_teardown(tcti_context);
+}
+
+void TPM2_esys_nv_read(ESYS_CONTEXT *ctx, ESYS_TR nvHandle, CryptoMsg **data)
+{
+    TSS2_RC r;
+    TPM2B_MAX_NV_BUFFER *nv_data = NULL;
+
+    r = Esys_NV_Read(ctx,
+                     nvHandle,
+                     nvHandle,
+                     ESYS_TR_PASSWORD,
+                     ESYS_TR_NONE,
+                     ESYS_TR_NONE,
+                     32,
+                     0,
+                     &nv_data);
+
+    goto_if_error(r, "Error esys nv read");
+    (*data) = CryptoMsg_new(nv_data->size);
+    memcpy((*data)->data, nv_data->buffer, (*data)->length);
+
+    r = Esys_NV_UndefineSpace(ctx,
+                              ESYS_TR_RH_OWNER,
+                              nvHandle,
+                              ESYS_TR_PASSWORD,
+                              ESYS_TR_NONE,
+                              ESYS_TR_NONE
+                              );
+    goto_if_error(r, "Error: NV_UndefineSpace");
+
+    Esys_Free(nv_data);
+}
+
+void TPM2_esys_nv_write(ESYS_CONTEXT *ctx, ESYS_TR *nvHandle, CryptoMsg *data)
+{
+    TSS2_RC r;
+    (*nvHandle) = ESYS_TR_NONE;
+
+    TPM2B_AUTH auth = {.size = 20,
+                       .buffer={10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+                                20, 21, 22, 23, 24, 25, 26, 27, 28, 29}};
+
+    TPM2B_NV_PUBLIC publicInfo = {
+        .size = 0,
+        .nvPublic = {
+            .nvIndex =TPM2_NV_INDEX_FIRST+2,
+            .nameAlg = TPM2_ALG_SHA1,
+            .attributes = (
+                TPMA_NV_OWNERWRITE |
+                TPMA_NV_AUTHWRITE |
+                TPMA_NV_AUTHREAD |
+                TPMA_NV_OWNERREAD
+                ),
+            .authPolicy = {
+                 .size = 0,
+                 .buffer = {},
+             },
+            .dataSize = 32,
+        }
+    };
+
+    r = Esys_NV_DefineSpace(ctx,
+                            ESYS_TR_RH_OWNER,
+                            ESYS_TR_PASSWORD,
+                            ESYS_TR_NONE,
+                            ESYS_TR_NONE,
+                            &auth,
+                            &publicInfo,
+                            nvHandle);
+    goto_if_error(r, "Error esys define nv space");
+
+    UINT16 offset = 0;
+    TPM2B_MAX_NV_BUFFER nv_data;
+    nv_data.size = data->length;
+    memcpy(nv_data.buffer, data->data, nv_data.size);
+    r = Esys_NV_Write(ctx,
+                      *nvHandle,
+                      *nvHandle,
+                      ESYS_TR_PASSWORD,
+                      ESYS_TR_NONE,
+                      ESYS_TR_NONE,
+                      &nv_data,
+                      offset);
+    goto_if_error(r, "Error esys nv write");
+}
+
+void TPM2_sys_context_init(TSS2_SYS_CONTEXT **sys_context)
+{
+    int ret;
+    test_opts_t opts = {
+        .tcti_type      = TCTI_DEFAULT,
+        .device_file    = DEVICE_PATH_DEFAULT,
+        .socket_address = HOSTNAME_DEFAULT,
+        .socket_port    = PORT_DEFAULT,
+    };
+
+    (*sys_context) = sys_init_from_opts(&opts);
+    if ((*sys_context) == NULL) {
+        printf("SYS context not initialized");
+        exit(0);
+    }
+
+    ret = Tss2_Sys_Startup((*sys_context), TPM2_SU_CLEAR);
+    if (ret != TSS2_RC_SUCCESS && ret != TPM2_RC_INITIALIZE) {
+        printf("TPM Startup FAILED! Response Code : 0x%x", ret);
+        exit(1);
+    }
+}
+
+void TPM2_sys_context_teardown(TSS2_SYS_CONTEXT *sys_context)
+{
+    sys_teardown_full(sys_context);
+}
+
+TSS2_RC TPM2_sys_nv_init(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index)
+{
+    TSS2_RC rc;
+    TPMI_SH_AUTH_SESSION auth_handle;
+    TPM2B_DIGEST  policy_hash = {
+        .size = TPM2B_SIZE_MAX(policy_hash),
+    };
+    TPM2B_AUTH  nv_auth = { 0, };
+    TSS2L_SYS_AUTH_RESPONSE auth_rsp;
+    TPM2B_NV_PUBLIC public_info = {
+        .nvPublic = {
+            .nameAlg = TPM2_ALG_SHA1,
+            .attributes = TPMA_NV_AUTHREAD | TPMA_NV_AUTHWRITE |
+                TPMA_NV_PLATFORMCREATE | TPMA_NV_WRITEDEFINE | TPMA_NV_ORDERLY,
+            .dataSize = NV_PS_INDEX_SIZE,
+            .nvIndex = index,
+        },
+    };
+
+    rc = create_policy_session(sys_ctx, &auth_handle);
+    goto_if_error (rc, "create_policy_session");
+
+    rc = Tss2_Sys_PolicyGetDigest(sys_ctx, auth_handle, 0, &policy_hash, 0);
+    goto_if_error (rc, "Tss2_Sys_PolicyGetDigest");
+
+    rc = Tss2_Sys_NV_DefineSpace(sys_ctx,
+                                 TPM2_RH_PLATFORM,
+                                 &auth_cmd_null_pwd,
+                                 &nv_auth,
+                                 &public_info,
+                                 &auth_rsp);
+    goto_if_error (rc, "Tss2_Sys_NV_DefineSpace");
+
+    rc = Tss2_Sys_FlushContext(sys_ctx, auth_handle);
+    goto_if_error (rc, "Tss2_Sys_FlushContext");
+
+    return TSS2_RC_SUCCESS;
+}
+
+TSS2_RC TPM2_sys_nv_teardown(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index)
+{
+    TSS2_RC rc;
+    TSS2L_SYS_AUTH_RESPONSE auth_resp = { 0, };
+
+    rc = Tss2_Sys_NV_UndefineSpace (sys_ctx,
+                                    TPM2_RH_PLATFORM,
+                                    index,
+                                    &auth_cmd_null_pwd,
+                                    &auth_resp);
+    goto_if_error(rc, "Tss2_Sys_NV_UndefineSpace");
+
+    return TSS2_RC_SUCCESS;
+}
+
+
+void TPM2_sys_nv_write(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, CryptoMsg *data)
+{
+    TSS2_RC rc;
+
+    TPM2B_MAX_NV_BUFFER write_data;
+    write_data.size = data->length;
+    memcpy(write_data.buffer, data->data, write_data.size);
+
+    TSS2L_SYS_AUTH_RESPONSE auth_resp = { 0, };
+
+    rc = TSS2_RETRY_EXP (Tss2_Sys_NV_Write(sys_ctx,
+                                           nv_index,
+                                           nv_index,
+                                           &auth_cmd_null_pwd,
+                                           &write_data,
+                                           0,
+                                           &auth_resp));
+    goto_if_error (rc, "Tss2_Sys_NV_Write");
+}
+
+void TPM2_sys_nv_read(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, CryptoMsg **data)
+{
+    TSS2_RC rc;
+    TPM2B_MAX_NV_BUFFER nv_buf = { 0, };
+    TSS2L_SYS_AUTH_RESPONSE auth_resp = { 0, };
+
+    rc = Tss2_Sys_NV_Read(sys_ctx,
+                          nv_index,
+                          nv_index,
+                          &auth_cmd_null_pwd,
+                          32,
+                          0,
+                          &nv_buf,
+                          &auth_resp);
+    goto_if_error (rc, "Tss2_Sys_NV_Read");
+    (*data) = CryptoMsg_new(nv_buf.size);
+    memcpy((*data)->data, nv_buf.buffer, (*data)->length);
+}
+
+void test_sys()
+{
+    ESYS_CONTEXT *ctx;
+    TSS2_TCTI_CONTEXT *tcti_inner;
+    TPM2_esys_context_init(&ctx, &tcti_inner);
+    Sysci *sysci = Sysci_new();
+    CryptoMsg *pcr_digest;
+    TPM2_esys_pcr_extend(ctx, sysci, &pcr_digest);
+    print_hex(pcr_digest->data, pcr_digest->length);
+    TPM2_esys_context_teardown(ctx, tcti_inner);
+
+    TSS2_RC rc, rc_teardown;
+    TSS2_SYS_CONTEXT *sys_context;
+    TPM2_sys_context_init(&sys_context);
+
+    rc = TPM2_sys_nv_init(sys_context, INDEX_LCP_OWN);
+    goto_if_error(rc, "setup_nv for INDEX_LCP_OWN");
+    TPM2_sys_nv_write(sys_context, INDEX_LCP_OWN, pcr_digest);
+
+    CryptoMsg *read_data;
+    TPM2_sys_nv_read(sys_context, INDEX_LCP_OWN, &read_data);
+    print_hex(read_data->data, read_data->length);
+    rc_teardown = TPM2_sys_nv_teardown (sys_context, INDEX_LCP_OWN);
+    goto_if_error (rc, "INDEX_LCP_OWN test");
+    goto_if_error (rc_teardown, "teardown_nv for INDEX_LCP_OWN");
+
+    TPM2_sys_context_teardown(sys_context);
+}
+
+void test_esys()
+{
+    ESYS_CONTEXT *ctx;
+    TSS2_TCTI_CONTEXT *tcti_inner;
+    TPM2_esys_context_init(&ctx, &tcti_inner);
+    Sysci *sysci = Sysci_new();
+    CryptoMsg *pcr_digest;
+    TPM2_esys_pcr_extend(ctx, sysci, &pcr_digest);
+    print_hex(pcr_digest->data, pcr_digest->length);
+    ESYS_TR nvHandle;
+    TPM2_esys_nv_write(ctx, &nvHandle, pcr_digest);
+    CryptoMsg *data;
+    TPM2_esys_nv_read(ctx, nvHandle, &data);
+    print_hex(data->data, data->length);
+    TPM2_esys_context_teardown(ctx, tcti_inner);
 }
 
 int main(int argc, char *argv[])
 {
+    test_sys();
     test_esys();
-    /* Sysci *sysci = Sysci_new(); */
-    /* CryptoMsg *pcr_digest; */
-    /* TPM2_pcr_extend(sysci, &pcr_digest); */
-    /* print_hex(pcr_digest->data, pcr_digest->length); */
 
 	return 0;
 }
