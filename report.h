@@ -1,28 +1,43 @@
 #ifndef REPORT_H
 #define REPORT_H
 
-#include <cjson/cJSON.h>
-
 #include "sysci.h"
 #include "crypto.h"
 
-const static int NONCE_LENGTH = 128;
-const static CryptoMsg ID = { .length = 0, .data=NULL };
+#define REPORT_RETURN_IF_ERROR(rc) \
+	if (rc != REPORT_RC_SUCCESS) { \
+		return rc; \
+	}
+
+typedef enum {
+	REPORT_RC_SUCCESS,
+	REPORT_RC_BAD_ALLOCATION,
+	REPORT_RC_BAD_RAND,
+	REPORT_RC_SYSCI_ENCRYPT_FAILED,
+	REPORT_RC_EVP_FAILED,
+	REPORT_RC_OPEN_FILE_FAILED,
+} ReportReturnCode;
+
+typedef CryptoMsg *ReportItem;
 
 typedef struct {
-	CryptoMsg *timestamp;
-	CryptoMsg *nonce;
-	CryptoMsg *encrypted_sysci;
-	CryptoMsg *signature;
+	ReportItem id;
+	ReportItem timestamp;
+	ReportItem nonce;
+	ReportItem encrypted_sysci;
+	ReportItem signature;
 } Report;
 
-void Report_new(Sysci *sysci, Report **report);
+ReportReturnCode Report_new(const Sysci *sysci, const char *id, Report **report);
 
 void Report_free(Report *report);
 
-void Report_to_json(Report *report, char **report_json);
+ReportReturnCode Report_sign(Report *report);
 
-void Report_parse_from_json(const char *str, Report **report);
+ReportReturnCode Report_verify(Report *report, int *verify_res);
 
+ReportReturnCode Report_to_json(Report *report, char **report_json);
+
+ReportReturnCode Report_parse_from_json(const char *str, Report **report);
 
 #endif /* REPORT_H */

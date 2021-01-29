@@ -1,5 +1,12 @@
 #include "tpm2.h"
+
+#include <string.h>
+#include <tss2/tss2_common.h>
+#include <tss2/tss2_tpm2_types.h>
 #include <tss2/tss2_esys.h>
+#include <tss2/tss2_sys.h>
+#include <tss2/tss2_tcti_mssim.h>
+#include <assert.h>
 
 TSS2_TCTI_CONTEXT_PROXY *tcti_proxy_cast (TSS2_TCTI_CONTEXT *ctx)
 {
@@ -117,8 +124,7 @@ TSS2_TCTI_CONTEXT *tcti_socket_init(char const *host, uint16_t port)
     }
     tcti_ctx = (TSS2_TCTI_CONTEXT *) calloc(1, size);
     if (tcti_ctx == NULL) {
-        fprintf(stderr, "Allocation for tcti context failed: %s\n",
-                strerror(errno));
+        fprintf(stderr, "Allocation for tcti context failed\n");
         return NULL;
     }
     rc = Tss2_Tcti_Mssim_Init(tcti_ctx, &size, conf_str);
@@ -148,7 +154,7 @@ void tcti_teardown(TSS2_TCTI_CONTEXT * tcti_context)
     }
 }
 
-UINT16 GetDigestSize(TPM2_ALG_ID hash)
+uint16_t get_digest_size(TPM2_ALG_ID hash)
 {
     switch (hash) {
         case TPM2_ALG_SHA1:
@@ -171,7 +177,7 @@ static TSS2_RC create_policy_session(TSS2_SYS_CONTEXT *sys_ctx, TPMI_SH_AUTH_SES
     TSS2_RC rc;
     TPM2B_ENCRYPTED_SECRET salt = { 0 };
     TPM2B_NONCE nonce = {
-        .size = GetDigestSize(TPM2_ALG_SHA1),
+        .size = get_digest_size(TPM2_ALG_SHA1),
     };
     TPM2B_NONCE nonce_tpm = { 0 };
     TPMT_SYM_DEF symmetric = {
@@ -357,9 +363,6 @@ void TPM2_esys_context_teardown(ESYS_CONTEXT *esys_ctx, TSS2_TCTI_CONTEXT *tcti_
 void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_digest)
 {
     TSS2_RC rc;
-    TPML_PCR_SELECTION *pcrSelectionOut = NULL;
-    TPML_DIGEST *pcrValues = NULL;
-
     ESYS_TR  pcrHandle_handle = 16;
     TPML_DIGEST_VALUES digests
         = {
@@ -390,10 +393,10 @@ void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_diges
                 }
             },
         }};
-    memcpy(digests.digests[0].digest.sha256, sysci->hardware_id->data, sysci->hardware_id->length);
-    memcpy(digests.digests[1].digest.sha256, sysci->system_release->data, sysci->system_release->length);
-    memcpy(digests.digests[2].digest.sha256, sysci->efi_sha256->data, sysci->efi_sha256->length);
-    memcpy(digests.digests[3].digest.sha256, sysci->proxy_p_sha256->data, sysci->proxy_p_sha256->length);
+    memcpy(digests.digests[0].digest.sha256, sysci->hardware_id->data, sysci->hardware_id->data_len);
+    memcpy(digests.digests[1].digest.sha256, sysci->system_release->data, sysci->system_release->data_len);
+    memcpy(digests.digests[2].digest.sha256, sysci->efi_sha256->data, sysci->efi_sha256->data_len);
+    memcpy(digests.digests[3].digest.sha256, sysci->proxy_p_sha256->data, sysci->proxy_p_sha256->data_len);
 
     rc = Esys_PCR_Extend(
         ctx,
@@ -419,6 +422,9 @@ void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_diges
         }
     };
     UINT32 pcrUpdateCounter;
+    TPML_PCR_SELECTION *pcrSelectionOut = NULL;
+    TPML_DIGEST *pcrValues = NULL;
+
 
     rc = Esys_PCR_Read(
         ctx,
@@ -431,8 +437,7 @@ void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_diges
         &pcrValues);
 	goto_if_error(rc, "PCR_Read");
 
-    (*pcr_digest) = CryptoMsg_new(pcrValues->digests[1].size);
-    memcpy((*pcr_digest)->data, pcrValues->digests[1].buffer, (*pcr_digest)->length);
+    CryptoMsg_new(pcrValues->digests[1].buffer, pcrValues->digests[1].size, pcr_digest);
 
     rc = Esys_PCR_Reset(
         ctx,
@@ -440,7 +445,6 @@ void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_diges
         ESYS_TR_PASSWORD,
         ESYS_TR_NONE,
         ESYS_TR_NONE);
-
     goto_if_error(rc, "PCR_Reset");
 
     Esys_Free(pcrSelectionOut);
@@ -463,8 +467,7 @@ void TPM2_esys_nv_read(ESYS_CONTEXT *ctx, ESYS_TR nvHandle, CryptoMsg **data)
                      &nv_data);
 
     goto_if_error(r, "Error esys nv read");
-    (*data) = CryptoMsg_new(nv_data->size);
-    memcpy((*data)->data, nv_data->buffer, (*data)->length);
+    CryptoMsg_new(nv_data->buffer, nv_data->size, data);
 
     r = Esys_NV_UndefineSpace(ctx,
                               ESYS_TR_RH_OWNER,
@@ -518,7 +521,7 @@ void TPM2_esys_nv_write(ESYS_CONTEXT *ctx, ESYS_TR *nvHandle, CryptoMsg *data)
 
     UINT16 offset = 0;
     TPM2B_MAX_NV_BUFFER nv_data;
-    nv_data.size = data->length;
+    nv_data.size = data->data_len;
     memcpy(nv_data.buffer, data->data, nv_data.size);
     r = Esys_NV_Write(ctx,
                       *nvHandle,
@@ -619,7 +622,7 @@ void TPM2_sys_nv_write(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, Cry
     TSS2_RC rc;
 
     TPM2B_MAX_NV_BUFFER write_data;
-    write_data.size = data->length;
+    write_data.size = data->data_len;
     memcpy(write_data.buffer, data->data, write_data.size);
 
     TSS2L_SYS_AUTH_RESPONSE auth_resp = { 0, };
@@ -649,60 +652,5 @@ void TPM2_sys_nv_read(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, Cryp
                           &nv_buf,
                           &auth_resp);
     goto_if_error (rc, "Tss2_Sys_NV_Read");
-    (*data) = CryptoMsg_new(nv_buf.size);
-    memcpy((*data)->data, nv_buf.buffer, (*data)->length);
-}
-
-void test_sys()
-{
-    ESYS_CONTEXT *ctx;
-    TSS2_TCTI_CONTEXT *tcti_inner;
-    TPM2_esys_context_init(&ctx, &tcti_inner);
-    Sysci *sysci = Sysci_new();
-    CryptoMsg *pcr_digest;
-    TPM2_esys_pcr_extend(ctx, sysci, &pcr_digest);
-    print_hex(pcr_digest->data, pcr_digest->length);
-    TPM2_esys_context_teardown(ctx, tcti_inner);
-
-    TSS2_RC rc, rc_teardown;
-    TSS2_SYS_CONTEXT *sys_context;
-    TPM2_sys_context_init(&sys_context);
-
-    rc = TPM2_sys_nv_init(sys_context, INDEX_LCP_OWN);
-    goto_if_error(rc, "setup_nv for INDEX_LCP_OWN");
-    TPM2_sys_nv_write(sys_context, INDEX_LCP_OWN, pcr_digest);
-
-    CryptoMsg *read_data;
-    TPM2_sys_nv_read(sys_context, INDEX_LCP_OWN, &read_data);
-    print_hex(read_data->data, read_data->length);
-    rc_teardown = TPM2_sys_nv_teardown (sys_context, INDEX_LCP_OWN);
-    goto_if_error (rc, "INDEX_LCP_OWN test");
-    goto_if_error (rc_teardown, "teardown_nv for INDEX_LCP_OWN");
-
-    TPM2_sys_context_teardown(sys_context);
-}
-
-void test_esys()
-{
-    ESYS_CONTEXT *ctx;
-    TSS2_TCTI_CONTEXT *tcti_inner;
-    TPM2_esys_context_init(&ctx, &tcti_inner);
-    Sysci *sysci = Sysci_new();
-    CryptoMsg *pcr_digest;
-    TPM2_esys_pcr_extend(ctx, sysci, &pcr_digest);
-    print_hex(pcr_digest->data, pcr_digest->length);
-    ESYS_TR nvHandle;
-    TPM2_esys_nv_write(ctx, &nvHandle, pcr_digest);
-    CryptoMsg *data;
-    TPM2_esys_nv_read(ctx, nvHandle, &data);
-    print_hex(data->data, data->length);
-    TPM2_esys_context_teardown(ctx, tcti_inner);
-}
-
-int main(int argc, char *argv[])
-{
-    test_sys();
-    test_esys();
-
-	return 0;
+    CryptoMsg_new(nv_buf.buffer, nv_buf.size, data);
 }

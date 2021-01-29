@@ -1,38 +1,53 @@
-#ifndef SYSCI_H
-#define SYSCI_H
-
-#include <sys/utsname.h>
-#include <cjson/cJSON.h>
+#ifndef CHX_SYSCI_H
+#define CHX_SYSCI_H
 
 #include "crypto.h"
 
-#define PRINT_CRYPTOMSG(msg) do { print_hex(msg->data, msg->length); }while(0)
+#define SYSCI_GOTO_IF_ERROR(rc) \
+	if (rc != SYSCI_RC_SUCCESS) { \
+		goto error; \
+	}
 
-const static char *PROXY_P_FILE_PATH = "./proxy-p";
-const static char *EFI_FILE_PATH = "/boot/EFI/arch/grubx64.efi";
-const static char *RSA_PUB_FILE_PATH = "./rsa-key/rsa-pub.key";
-const static char *RSA_PRI_FILE_PATH = "./rsa-key/rsa-pri.key";
-const static int RSA_KEY_LENGTH = 256;
+#define SYSCI_RETURN_IF_ERROR(rc) \
+	if (rc != SYSCI_RC_SUCCESS) { \
+		return rc; \
+	}
+
+const static char *kPROXY_P_FILE_PATH = "./proxy-p";
+
+typedef CryptoMsg *SysciItem;
+
+typedef enum {
+	SYSCI_RC_SUCCESS,
+	SYSCI_RC_BAD_ALLOCATION,
+	SYSCI_RC_CRYPTO_FAILED,
+	SYSCI_RC_EVP_FAILED,
+	SYSCI_RC_OPEN_FILE_FAILED,
+} SysciReturnCode;
 
 typedef struct {
-	CryptoMsg *hardware_id;
-	CryptoMsg *system_release;
-	CryptoMsg *efi_sha256;
-	CryptoMsg *proxy_p_sha256;
+	SysciItem hardware_id;
+	SysciItem system_release;
+	SysciItem efi_sha256;
+	SysciItem proxy_p_sha256;
 } Sysci;
 
-Sysci *Sysci_new();
+SysciReturnCode Sysci_empty_new(Sysci **new_empty_sysci);
+
+void Sysci_empty_free(Sysci *empty_sysci);
+
+SysciReturnCode Sysci_new(Sysci **new_sysci);
 
 void Sysci_free(Sysci *sysci);
 
-void Sysci_print(Sysci *sysci);
+void Sysci_print(const Sysci *sysci);
 
-CryptoMsg *Sysci_encrypt(Sysci *sysci);
+SysciReturnCode Sysci_encrypt(const Sysci *sysci, CryptoMsg **encrypted_sysci);
 
-Sysci *Sysci_decrypt(const CryptoMsg *encrypted_sysci);
+SysciReturnCode Sysci_decrypt(const CryptoMsg *encrypted_sysci, Sysci **sysci);
 
-void Sysci_to_json(Sysci *sysci, char **sysci_json);
+SysciReturnCode Sysci_to_json(const Sysci *sysci, char **sysci_json);
 
-void Sysci_parse_from_json(const char *str, Sysci **sysci);
+SysciReturnCode Sysci_parse_from_json(const char *sysci_json, Sysci **sysci);
 
-#endif /* SYSCI_H */
+#endif /* CHX_SYSCI_H */

@@ -1,42 +1,71 @@
 #include "coordination.h"
-#include "socket.h"
-#include "util.h"
 
-void CoordinationMsg_new(CoordinationMsg **msg, CoordinationMsgType type, void *data, size_t data_len)
-{
-	*msg = malloc(sizeof(CoordinationMsg)+data_len);
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+
+const static size_t COORDINATION_BUFFER_SIZE = 4096;
+
+inline static size_t CoordinationMsg_total_length(const CoordinationMsg *msg) {
+	return sizeof(CoordinationMsg) + msg->data_len;
+}
+
+inline static uint8_t *CoordinationMsg_get_type_from_data(uint8_t *data, CoordinationMsgType *type) {
+	(*type) = *((CoordinationMsgType *)data);
+	return data += sizeof(CoordinationMsgType);
+}
+
+inline static uint8_t *CoordinationMsg_get_data_len_from_data(CoordinationMsgData data, CoordinationMsgDataLength *len) {
+	(*len) = *((CoordinationMsgDataLength *)data);
+	return data += sizeof(CoordinationMsgDataLength);
+}
+
+CoordinationReturnCode CoordinationMsg_new(const CoordinationMsgType type, const CoordinationMsgData data, const CoordinationMsgDataLength data_len, CoordinationMsg **msg) {
+	*msg = malloc(sizeof(CoordinationMsg) + data_len);
+	if ((*msg) == NULL)
+		return COORDINATION_RC_BAD_ALLOCATION;
 	(*msg)->type = type;
 	(*msg)->data_len = data_len;
 	memcpy((*msg)->data, data, (*msg)->data_len);
+	return COORDINATION_RC_SUCCESS;
 }
 
-void CoordinationMsg_free(CoordinationMsg *msg)
-{
-	free(msg);
+void CoordinationMsg_free(CoordinationMsg *msg) {
+	if (msg) {
+		free(msg);
+		msg = NULL;
+	}
 }
 
-void Coordination_unpack_data(CoordinationMsg **msg, void *data, ssize_t data_len)
-{
-	uint8_t *off = data;
-	CoordinationMsgType *type = (CoordinationMsgType *)off;
-	off += sizeof(CoordinationMsgType);
+CoordinationReturnCode Coordination_unpack_data(void *buf, const ssize_t buf_len, CoordinationMsg **msg) {
+	if (buf_len < sizeof(CoordinationMsg))
+		return COORDINATION_RC_BAD_DATA;
 
-	size_t *real_data_len = (size_t *)off;
-	off += sizeof(size_t);
+	uint8_t *off = buf;
+	CoordinationMsgType type;
+	off = CoordinationMsg_get_type_from_data(off, &type);
+	CoordinationMsgDataLength data_len;
+	off = CoordinationMsg_get_data_len_from_data(off, &data_len);
 
-	CoordinationMsg_new(msg, *type, off, *real_data_len);
+	if (data_len == 0 && (buf+buf_len) != off)
+		return COORDINATION_RC_BAD_DATA;
+
+	return CoordinationMsg_new(type, off, data_len, msg);
 }
 
-void Coordination_send_to_peer(int fd, CoordinationMsgType type, void *data, size_t data_len)
-{
+CoordinationReturnCode Coordination_send_to_peer(const int fd, const CoordinationMsgType type, const CoordinationMsgData data, const CoordinationMsgDataLength data_len) {
 	CoordinationMsg *msg;
-	CoordinationMsg_new(&msg, type, data, data_len);
-	ssize_t write_len = write(fd, msg, sizeof(CoordinationMsg) + msg->data_len);
+	CoordinationReturnCode rc = CoordinationMsg_new(type, data, data_len, &msg);
+	if (rc != COORDINATION_RC_SUCCESS)
+		return rc;
+
+	ssize_t write_len = write(fd, msg, CoordinationMsg_total_length(msg));
+	CoordinationMsg_free(msg);
+	return COORDINATION_RC_SUCCESS;
 }
 
-void Coordination_read_from_peer(int fd, CoordinationMsg **msg)
-{
+CoordinationReturnCode Coordination_read_from_peer(const int fd, CoordinationMsg **msg) {
 	uint8_t buf[COORDINATION_BUFFER_SIZE];
 	ssize_t read_len = read(fd, buf, COORDINATION_BUFFER_SIZE);
-	Coordination_unpack_data(msg, buf, read_len);
+	return Coordination_unpack_data(buf, read_len, msg);
 }

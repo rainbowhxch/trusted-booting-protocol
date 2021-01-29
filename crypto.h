@@ -1,44 +1,58 @@
-#ifndef CRYPTO_H
-#define CRYPTO_H
+#ifndef CHX_CRYPTO_H
+#define CHX_CRYPTO_H
 
 #include <openssl/evp.h>
-#include <openssl/rsa.h>
-#include <openssl/pem.h>
-#include <openssl/rand.h>
-#include <openssl/bn.h>
-#include <openssl/ossl_typ.h>
 
 #include "util.h"
 
-const static int PAGE_SIZE = 4096;
+#define CRYPTO_GOTO_IF_ERROR(rc) \
+	if (rc != CRYPTO_RC_SUCCESS) { \
+		goto error; \
+	}
+
+const static char *kRSA_PUB_FILE_PATH = "./rsa-key/rsa-pub.key";
+const static char *kRSA_PRI_FILE_PATH = "./rsa-key/rsa-pri.key";
+const static int kRSA_KEY_LENGTH = 256;
+
+typedef enum {
+	CRYPTO_RC_SUCCESS,
+	CRYPTO_RC_BAD_ALLOCATION,
+	CRYPTO_RC_EVP_FAILED,
+	CRYPTO_RC_OPEN_FILE_FAILED,
+} CryptoReturnCode;
+
+typedef size_t CryptoMsgDataLength;
+typedef unsigned char *CryptoMsgData;
 
 typedef struct {
-	size_t length;
-	unsigned char *data;
+	CryptoMsgData data;
+	CryptoMsgDataLength data_len;
 } CryptoMsg;
 
-CryptoMsg *CryptoMsg_new(size_t msg_len);
+CryptoReturnCode CryptoMsg_new_with_length(const CryptoMsgDataLength msg_len, CryptoMsg **new_msg);
+
+CryptoReturnCode CryptoMsg_new(const CryptoMsgData data, const CryptoMsgDataLength data_len, CryptoMsg **new_msg);
 
 void CryptoMsg_free(CryptoMsg *cryptoMsg);
 
-CryptoMsg *digest_message(const CryptoMsg *in);
+CryptoReturnCode CryptoMsg_parse_from_hexstr(const char* hexstr, CryptoMsg **msg);
 
-CryptoMsg *digest_file(const char *file_path);
+CryptoReturnCode CryptoMsg_to_hexstr(const CryptoMsg *msg, char **hexstr);
 
-CryptoMsg *rsa_pub_file_encrypt(const CryptoMsg *in, const char *pub_key_path);
+CryptoReturnCode Crypto_digest_message(const CryptoMsg *in, CryptoMsg **out);
 
-CryptoMsg *rsa_pri_file_decrypt(const CryptoMsg *in, const char *pri_key_path);
+CryptoReturnCode Crypto_digest_file(const char *file_path, CryptoMsg **digest);
 
-CryptoMsg *rsa_pub_key_encrypt(const CryptoMsg *in, EVP_PKEY *pkey);
+CryptoReturnCode Crypto_rsa_pub_file_encrypt(const CryptoMsg *msg, const char *pub_key_path, CryptoMsg **encrypted_msg);
 
-CryptoMsg *rsa_pri_key_decrypt(const CryptoMsg *in, EVP_PKEY *pkey);
+CryptoReturnCode Crypto_rsa_pri_file_decrypt(const CryptoMsg *msg, const char *pri_key_path, CryptoMsg **encrypted_msg);
 
-CryptoMsg *rsa_file_digest_sign(const CryptoMsg *in, const char *pub_key_path);
+CryptoReturnCode Crypto_rsa_pub_key_encrypt(const CryptoMsg *msg, EVP_PKEY *pkey, CryptoMsg **encrypted_msg);
 
-int rsa_file_digest_verify(const CryptoMsg *in, const CryptoMsg *sig, const char *pub_key_path);
+CryptoReturnCode Crypto_rsa_pri_key_decrypt(const CryptoMsg *msg, EVP_PKEY *pkey, CryptoMsg **decrypted_msg);
 
-CryptoMsg *hexstr_to_CryptoMsg(const char* hexstr);
+CryptoReturnCode Crypto_rsa_file_digest_sign(const CryptoMsg *digest, const char *pri_key_path, CryptoMsg **signed_digest);
 
-char *CryptoMsg_to_hexstr(const CryptoMsg *msg);
+CryptoReturnCode Crypto_rsa_file_digest_verify(const CryptoMsg *digest, const CryptoMsg *signature, const char *pub_key_path, int *is_right);
 
-#endif /* CRYPTO_H */
+#endif /* CHX_CRYPTO_H */

@@ -1,32 +1,54 @@
-#include "proxy-p.h"
+#include <stdint.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <string.h>
+
+#include "coordination.h"
+#include "socket.h"
+#include "sysci.h"
+#include "report.h"
+
+const static char *kPROXY_V_IP = "127.0.0.1";
+const static uint16_t kPROXY_V_PORT = 10006;
+const static uint16_t kPROXY_P_PORT = 0;
 
 int main(int argc, char *argv[])
 {
-	Coordination_send_to_peer(STDOUT_FILENO, COORDINATION_GET_SYSCI, NULL, 0);
 	CoordinationMsg *coord_msg;
-	Coordination_read_from_peer(STDIN_FILENO, &coord_msg);
-	Sysci *sysci;
-	Sysci_parse_from_json((const char *)coord_msg->data, &sysci);
-	CoordinationMsg_free(coord_msg);
-	Report *report;
-	Report_new(sysci, &report);
-	Sysci_free(sysci);
-	char *report_json;
-	Report_to_json(report, &report_json);
-	Report_free(report);
-
 	int sockfd;
-	Socket_udp_init(&sockfd, PROXY_P_PORT);
-
+	Socket_udp_init(kPROXY_P_PORT, &sockfd);
 	struct sockaddr_in peer_addr;
-	bzero(&peer_addr, sizeof(peer_addr));
-	peer_addr.sin_port = htons(PROXY_V_PORT);
-	peer_addr.sin_family = AF_INET;
-	inet_pton(AF_INET, PROXY_V_IP, &peer_addr.sin_addr);
+	Socket_get_sockaddr_from_string(kPROXY_V_IP, kPROXY_V_PORT, &peer_addr);
 	socklen_t peer_addr_len = sizeof(peer_addr);
 
-	Socket_send_to_peer(sockfd, (SA *)&peer_addr, peer_addr_len, SOCKET_SEND_REPORT, report_json, strlen(report_json)+1);
-	Coordination_send_to_peer(STDOUT_FILENO, COORDINATION_SEND_SYSCI, report_json, strlen(report_json)+1);
+	while (1) {
+		CoordinationReturnCode crc = Coordination_send_to_peer(STDOUT_FILENO, COORDINATION_MT_GET_SYSCI, NULL, 0);
+		crc = Coordination_read_from_peer(STDIN_FILENO, &coord_msg);
+		switch(coord_msg->type) {
+			case COORDINATION_MT_SEND_SYSCI:
+				{
+					Sysci *sysci;
+					Sysci_parse_from_json((char *)coord_msg->data, &sysci);
+					CoordinationMsg_free(coord_msg);
+
+					Report *report;
+					Report_new(sysci, "1", &report);
+					Sysci_free(sysci);
+
+					char *report_json;
+					Report_to_json(report, &report_json);
+					Report_free(report);
+
+					Socket_send_to_peer(sockfd, (SA *)&peer_addr, peer_addr_len, SOCKET_MT_SEND_REPORT, \
+						(uint8_t *)report_json, strlen(report_json)+1);
+					free(report_json);
+					break;
+				}
+				default:
+					printf("get error CoordinationMsg type...\n");
+					break;
+		}
+	}
 
     return 0;
 }

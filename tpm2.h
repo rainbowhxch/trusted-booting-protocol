@@ -1,21 +1,9 @@
 #ifndef TPM2_H
 #define TPM2_H
 
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <tss2/tss2_common.h>
-#include <tss2/tss2_esys.h>
 #include <tss2/tss2_tcti.h>
-#include <tss2/tss2_tcti_mssim.h>
-#include <tss2/tss2_tpm2_types.h>
-#include <tss2/tss2_rc.h>
-#include <tss2/tss2_mu.h>
-#include <tss2/tss2_sys.h>
-#include <errno.h>
+#include <tss2/tss2_esys.h>
 
-#include "crypto.h"
 #include "sysci.h"
 
 #define goto_if_error(r,msg) \
@@ -24,6 +12,7 @@
         exit(0); \
     }
 
+/* Default ABI version */
 #define TSSWG_INTEROP 1
 #define TSS_SAPI_FIRST_FAMILY 2
 #define TSS_SAPI_FIRST_LEVEL 1
@@ -87,11 +76,10 @@ typedef struct {
     uint32_t version;
     TSS2_TCTI_TRANSMIT_FCN transmit;
     TSS2_TCTI_RECEIVE_FCN receive;
-    TSS2_RC (*finalize) (TSS2_TCTI_CONTEXT *tctiContext);
-    TSS2_RC (*cancel) (TSS2_TCTI_CONTEXT *tctiContext);
-    TSS2_RC (*getPollHandles) (TSS2_TCTI_CONTEXT *tctiContext,
-              TSS2_TCTI_POLL_HANDLE *handles, size_t *num_handles);
-    TSS2_RC (*setLocality) (TSS2_TCTI_CONTEXT *tctiContext, uint8_t locality);
+    TSS2_RC (*finalize)(TSS2_TCTI_CONTEXT *tctiContext);
+    TSS2_RC (*cancel)(TSS2_TCTI_CONTEXT *tctiContext);
+    TSS2_RC (*getPollHandles)(TSS2_TCTI_CONTEXT *tctiContext, TSS2_TCTI_POLL_HANDLE *handles, size_t *num_handles);
+    TSS2_RC (*setLocality)(TSS2_TCTI_CONTEXT *tctiContext, uint8_t locality);
     TSS2_TCTI_CONTEXT *tctiInner;
     enum state state;
 } TSS2_TCTI_CONTEXT_PROXY;
@@ -121,12 +109,12 @@ static TSS2_RC tcti_proxy_transmit(TSS2_TCTI_CONTEXT *tctiContext, size_t comman
 static TSS2_RC tcti_proxy_receive(TSS2_TCTI_CONTEXT *tctiContext, size_t *response_size, uint8_t *response_buffer, int32_t timeout);
 static void tcti_proxy_finalize(TSS2_TCTI_CONTEXT *tctiContext);
 static TSS2_RC tcti_proxy_initialize(TSS2_TCTI_CONTEXT *tctiContext, size_t *contextSize, TSS2_TCTI_CONTEXT *tctiInner);
-static UINT16 GetDigestSize(TPM2_ALG_ID hash);
+static uint16_t get_digest_size(TPM2_ALG_ID hash);
 static TSS2_RC create_policy_session (TSS2_SYS_CONTEXT *sys_ctx, TPMI_SH_AUTH_SESSION *handle);
-TSS2_SYS_CONTEXT *sys_init_from_tcti_ctx(TSS2_TCTI_CONTEXT * tcti_ctx);
-TSS2_SYS_CONTEXT *sys_init_from_opts(test_opts_t * options);
-void sys_teardown(TSS2_SYS_CONTEXT * sys_context);
-void sys_teardown_full(TSS2_SYS_CONTEXT * sys_context);
+static TSS2_SYS_CONTEXT *sys_init_from_tcti_ctx(TSS2_TCTI_CONTEXT * tcti_ctx);
+static TSS2_SYS_CONTEXT *sys_init_from_opts(test_opts_t * options);
+static void sys_teardown(TSS2_SYS_CONTEXT * sys_context);
+static void sys_teardown_full(TSS2_SYS_CONTEXT * sys_context);
 static TSS2_RC setup_nv(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index);
 static TSS2_RC teardown_nv(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index);
 static void TPM2_init_mssim(TSS2_TCTI_CONTEXT **tcti_context, TSS2_TCTI_CONTEXT **tcti_inner);

@@ -1,33 +1,37 @@
-#ifndef COORDINATION_H
-#define COORDINATION_H
+#ifndef CHX_COORDINATION_H
+#define CHX_COORDINATION_H
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <stdint.h>
-#include <unistd.h>
-
-const static size_t COORDINATION_BUFFER_SIZE = 4096;
 
 typedef enum {
-	COORDINATION_GET_SYSCI,
-	COORDINATION_SEND_SYSCI
+	COORDINATION_RC_SUCCESS,
+	COORDINATION_RC_BAD_ALLOCATION,
+	COORDINATION_RC_BAD_DATA,
+} CoordinationReturnCode;
+
+typedef enum {
+	COORDINATION_MT_GET_SYSCI,
+	COORDINATION_MT_SEND_SYSCI
 } CoordinationMsgType;
+
+typedef size_t CoordinationMsgDataLength;
+typedef uint8_t CoordinationMsgData[];
 
 typedef struct {
 	CoordinationMsgType type;
-	size_t data_len;
-	uint8_t data[];
+	CoordinationMsgDataLength data_len;
+	CoordinationMsgData data;
 }__attribute__((packed)) CoordinationMsg;
 
-void CoordinationMsg_new(CoordinationMsg **msg, CoordinationMsgType type, void *data, size_t data_len);
+CoordinationReturnCode CoordinationMsg_new(const CoordinationMsgType type, const CoordinationMsgData data, const CoordinationMsgDataLength data_len, CoordinationMsg **msg);
 
 void CoordinationMsg_free(CoordinationMsg *msg);
 
-void Coordination_unpack_data(CoordinationMsg **msg, void *data, ssize_t data_len);
+CoordinationReturnCode Coordination_unpack_data(void *buf, const ssize_t buf_len, CoordinationMsg **msg);
 
-void Coordination_send_to_peer(int fd, CoordinationMsgType type, void *data, size_t data_len);
+CoordinationReturnCode Coordination_send_to_peer(const int fd, const CoordinationMsgType type, const CoordinationMsgData data, const CoordinationMsgDataLength data_len);
 
-void Coordination_read_from_peer(int fd, CoordinationMsg **msg);
+CoordinationReturnCode Coordination_read_from_peer(const int fd, CoordinationMsg **msg);
 
-#endif /* COORDINATION_H */
+#endif /* CHX_COORDINATION_H */

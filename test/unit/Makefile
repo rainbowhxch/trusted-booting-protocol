@@ -2,7 +2,7 @@ C_SOURCES = $(wildcard *.c)
 C_HEADERS = $(wildcard ../../*.h)
 
 OBJ = ${C_SOURCES:.c=.o}
-EXE = test-socket
+EXE = test-socket test-coordination
 
 CC = gcc
 
@@ -10,8 +10,12 @@ all: $(EXE)
 
 run:
 	./test-socket
+	./test-coordination
 
-test-socket: test-socket.c ../../socket.c
+test-socket: test-socket.o ../../socket.o
+	$(CC) $^ -o $@ -lcmocka
+
+test-coordination: test-coordination.o ../../coordination.o
 	$(CC) $^ -o $@ -lcmocka
 
 %.o: %.c $(C_HEADERS)
