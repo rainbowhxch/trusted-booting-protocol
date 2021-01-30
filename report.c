@@ -18,7 +18,7 @@
 
 const static int REPORT_NONCE_LENGTH = 128;
 
-ReportReturnCode Report_empty_new(Report **report) {
+static ReportReturnCode Report_empty_new(Report **report) {
 	(*report) = malloc(sizeof(Report));
 	if ((*report) == NULL)
 		return REPORT_RC_BAD_ALLOCATION;
@@ -30,7 +30,7 @@ ReportReturnCode Report_empty_new(Report **report) {
 	return REPORT_RC_SUCCESS;
 }
 
-void Report_empty_free(Report *report) {
+static void Report_empty_free(Report *report) {
 	if (report) {
 		free(report);
 		report = NULL;
@@ -71,6 +71,17 @@ ReportReturnCode Report_new(const Sysci *sysci, const char *id, Report **report)
 error:
 	Report_free(*report);
 	REPORT_RETURN_IF_CRYPTO_ERROR(crc);
+}
+
+void Report_free(Report *report)
+{
+	if (report) {
+		CryptoMsg_free(report->timestamp);
+		CryptoMsg_free(report->nonce);
+		CryptoMsg_free(report->encrypted_sysci);
+		CryptoMsg_free(report->signature);
+		Report_empty_free(report);
+	}
 }
 
 ReportReturnCode Report_sign(Report *report) {
@@ -121,17 +132,6 @@ ReportReturnCode Report_verify(Report *report, int *verify_res) {
 error:
 	CryptoMsg_free(need_verify_msg);
 	REPORT_RETURN_IF_CRYPTO_ERROR(crc);
-}
-
-void Report_free(Report *report)
-{
-	if (report) {
-		CryptoMsg_free(report->timestamp);
-		CryptoMsg_free(report->nonce);
-		CryptoMsg_free(report->encrypted_sysci);
-		CryptoMsg_free(report->signature);
-		Report_empty_free(report);
-	}
 }
 
 ReportReturnCode Report_to_json(Report *report, char **report_json) {

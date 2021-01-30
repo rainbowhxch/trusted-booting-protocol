@@ -1,12 +1,8 @@
 #include "tpm2.h"
 
 #include <string.h>
-#include <tss2/tss2_common.h>
-#include <tss2/tss2_tpm2_types.h>
-#include <tss2/tss2_esys.h>
 #include <tss2/tss2_sys.h>
 #include <tss2/tss2_tcti_mssim.h>
-#include <assert.h>
 
 TSS2_TCTI_CONTEXT_PROXY *tcti_proxy_cast (TSS2_TCTI_CONTEXT *ctx)
 {
@@ -196,7 +192,7 @@ static TSS2_RC create_policy_session(TSS2_SYS_CONTEXT *sys_ctx, TPMI_SH_AUTH_SES
                                     handle,
                                     &nonce_tpm,
                                     0);
-    goto_if_error (rc, "Tss2_Sys_StartAuthSession");
+    TPM2_RETURN_IF_ERROR(rc);
     return TSS2_RC_SUCCESS;
 }
 
@@ -248,17 +244,17 @@ void sys_teardown(TSS2_SYS_CONTEXT * sys_context)
     free(sys_context);
 }
 
-void sys_teardown_full(TSS2_SYS_CONTEXT * sys_context)
+TSS2_RC sys_teardown_full(TSS2_SYS_CONTEXT * sys_context)
 {
     TSS2_TCTI_CONTEXT *tcti_context = NULL;
     TSS2_RC rc;
 
     rc = Tss2_Sys_GetTctiContext(sys_context, &tcti_context);
-    if (rc != TSS2_RC_SUCCESS)
-        return;
+    TPM2_RETURN_IF_ERROR(rc);
 
     sys_teardown(sys_context);
     tcti_teardown(tcti_context);
+    return TSS2_RC_SUCCESS;
 }
 
 void esys_init_from_tcti_ctx(TSS2_TCTI_CONTEXT *tcti_context, ESYS_CONTEXT **ctx)
@@ -324,21 +320,22 @@ void esys_teardown(ESYS_CONTEXT *esys_ctx)
     free(esys_ctx);
 }
 
-void esys_teardown_full(ESYS_CONTEXT *esys_ctx, TSS2_TCTI_CONTEXT *tcti_inner)
+
+TSS2_RC esys_teardown_full(ESYS_CONTEXT *esys_ctx, TSS2_TCTI_CONTEXT *tcti_inner)
 {
     TSS2_TCTI_CONTEXT *tcti_context = NULL;
     TSS2_RC rc;
 
     rc = Esys_GetTcti(esys_ctx, &tcti_context);
-    if (rc != TSS2_RC_SUCCESS)
-        return;
+    TPM2_RETURN_IF_ERROR(rc);
 
     esys_teardown(esys_ctx);
     tcti_teardown(tcti_context);
     tcti_teardown(tcti_inner);
+    return TSS2_RC_SUCCESS;
 }
 
-void TPM2_esys_context_init(ESYS_CONTEXT **esys_ctx, TSS2_TCTI_CONTEXT **tcti_inner)
+TSS2_RC TPM2_esys_context_init(ESYS_CONTEXT **esys_ctx, TSS2_TCTI_CONTEXT **tcti_inner)
 {
     int ret;
     test_opts_t opts = {
@@ -349,18 +346,17 @@ void TPM2_esys_context_init(ESYS_CONTEXT **esys_ctx, TSS2_TCTI_CONTEXT **tcti_in
     };
 
     esys_init_from_opts(&opts, esys_ctx, tcti_inner);
-    if ((*esys_ctx) == NULL) {
-        printf("SYS context not initialized");
-        exit(0);
-    }
+    if ((*esys_ctx) == NULL)
+        return TPM2_RC_BAD_CONTEXT;
+    return TSS2_RC_SUCCESS;
 }
 
-void TPM2_esys_context_teardown(ESYS_CONTEXT *esys_ctx, TSS2_TCTI_CONTEXT *tcti_inner)
+TSS2_RC TPM2_esys_context_teardown(ESYS_CONTEXT *esys_ctx, TSS2_TCTI_CONTEXT *tcti_inner)
 {
-    esys_teardown_full(esys_ctx, tcti_inner);
+    return esys_teardown_full(esys_ctx, tcti_inner);
 }
 
-void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_digest)
+TSS2_RC TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_digest)
 {
     TSS2_RC rc;
     ESYS_TR  pcrHandle_handle = 16;
@@ -406,7 +402,7 @@ void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_diges
         ESYS_TR_NONE,
         &digests
         );
-	goto_if_error(rc, "PCR_Extend");
+    TPM2_RETURN_IF_ERROR(rc);
 
     TPML_PCR_SELECTION pcrSelectionIn = {
         .count = 2,
@@ -435,9 +431,12 @@ void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_diges
         &pcrUpdateCounter,
         &pcrSelectionOut,
         &pcrValues);
-	goto_if_error(rc, "PCR_Read");
+    TPM2_RETURN_IF_ERROR(rc);
 
-    CryptoMsg_new(pcrValues->digests[1].buffer, pcrValues->digests[1].size, pcr_digest);
+    CryptoReturnCode crc = CryptoMsg_new(pcrValues->digests[1].buffer, pcrValues->digests[1].size, pcr_digest);
+    if (crc != CRYPTO_RC_SUCCESS) {
+        return TPM2_RC_FAILURE;
+    }
 
     rc = Esys_PCR_Reset(
         ctx,
@@ -445,10 +444,12 @@ void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_diges
         ESYS_TR_PASSWORD,
         ESYS_TR_NONE,
         ESYS_TR_NONE);
-    goto_if_error(rc, "PCR_Reset");
+    TPM2_RETURN_IF_ERROR(rc);
 
     Esys_Free(pcrSelectionOut);
     Esys_Free(pcrValues);
+
+    return TSS2_RC_SUCCESS;
 }
 
 void TPM2_esys_nv_read(ESYS_CONTEXT *ctx, ESYS_TR nvHandle, CryptoMsg **data)
@@ -466,7 +467,6 @@ void TPM2_esys_nv_read(ESYS_CONTEXT *ctx, ESYS_TR nvHandle, CryptoMsg **data)
                      0,
                      &nv_data);
 
-    goto_if_error(r, "Error esys nv read");
     CryptoMsg_new(nv_data->buffer, nv_data->size, data);
 
     r = Esys_NV_UndefineSpace(ctx,
@@ -476,7 +476,6 @@ void TPM2_esys_nv_read(ESYS_CONTEXT *ctx, ESYS_TR nvHandle, CryptoMsg **data)
                               ESYS_TR_NONE,
                               ESYS_TR_NONE
                               );
-    goto_if_error(r, "Error: NV_UndefineSpace");
 
     Esys_Free(nv_data);
 }
@@ -517,7 +516,6 @@ void TPM2_esys_nv_write(ESYS_CONTEXT *ctx, ESYS_TR *nvHandle, CryptoMsg *data)
                             &auth,
                             &publicInfo,
                             nvHandle);
-    goto_if_error(r, "Error esys define nv space");
 
     UINT16 offset = 0;
     TPM2B_MAX_NV_BUFFER nv_data;
@@ -531,12 +529,11 @@ void TPM2_esys_nv_write(ESYS_CONTEXT *ctx, ESYS_TR *nvHandle, CryptoMsg *data)
                       ESYS_TR_NONE,
                       &nv_data,
                       offset);
-    goto_if_error(r, "Error esys nv write");
 }
 
-void TPM2_sys_context_init(TSS2_SYS_CONTEXT **sys_context)
+TSS2_RC TPM2_sys_context_init(TSS2_SYS_CONTEXT **sys_context)
 {
-    int ret;
+    TSS2_RC rc;
     test_opts_t opts = {
         .tcti_type      = TCTI_DEFAULT,
         .device_file    = DEVICE_PATH_DEFAULT,
@@ -545,21 +542,16 @@ void TPM2_sys_context_init(TSS2_SYS_CONTEXT **sys_context)
     };
 
     (*sys_context) = sys_init_from_opts(&opts);
-    if ((*sys_context) == NULL) {
-        printf("SYS context not initialized");
-        exit(0);
-    }
+    if ((*sys_context) == NULL)
+        return TPM2_RC_BAD_CONTEXT;
 
-    ret = Tss2_Sys_Startup((*sys_context), TPM2_SU_CLEAR);
-    if (ret != TSS2_RC_SUCCESS && ret != TPM2_RC_INITIALIZE) {
-        printf("TPM Startup FAILED! Response Code : 0x%x", ret);
-        exit(1);
-    }
+    rc = Tss2_Sys_Startup((*sys_context), TPM2_SU_CLEAR);
+    return rc;
 }
 
-void TPM2_sys_context_teardown(TSS2_SYS_CONTEXT *sys_context)
+TSS2_RC TPM2_sys_context_teardown(TSS2_SYS_CONTEXT *sys_context)
 {
-    sys_teardown_full(sys_context);
+    return sys_teardown_full(sys_context);
 }
 
 TSS2_RC TPM2_sys_nv_init(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index)
@@ -582,10 +574,10 @@ TSS2_RC TPM2_sys_nv_init(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index)
     };
 
     rc = create_policy_session(sys_ctx, &auth_handle);
-    goto_if_error (rc, "create_policy_session");
+    TPM2_RETURN_IF_ERROR(rc);
 
     rc = Tss2_Sys_PolicyGetDigest(sys_ctx, auth_handle, 0, &policy_hash, 0);
-    goto_if_error (rc, "Tss2_Sys_PolicyGetDigest");
+    TPM2_RETURN_IF_ERROR(rc);
 
     rc = Tss2_Sys_NV_DefineSpace(sys_ctx,
                                  TPM2_RH_PLATFORM,
@@ -593,10 +585,10 @@ TSS2_RC TPM2_sys_nv_init(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index)
                                  &nv_auth,
                                  &public_info,
                                  &auth_rsp);
-    goto_if_error (rc, "Tss2_Sys_NV_DefineSpace");
+    TPM2_RETURN_IF_ERROR(rc);
 
     rc = Tss2_Sys_FlushContext(sys_ctx, auth_handle);
-    goto_if_error (rc, "Tss2_Sys_FlushContext");
+    TPM2_RETURN_IF_ERROR(rc);
 
     return TSS2_RC_SUCCESS;
 }
@@ -611,13 +603,13 @@ TSS2_RC TPM2_sys_nv_teardown(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index)
                                     index,
                                     &auth_cmd_null_pwd,
                                     &auth_resp);
-    goto_if_error(rc, "Tss2_Sys_NV_UndefineSpace");
+    TPM2_RETURN_IF_ERROR(rc);
 
     return TSS2_RC_SUCCESS;
 }
 
 
-void TPM2_sys_nv_write(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, CryptoMsg *data)
+TSS2_RC TPM2_sys_nv_write(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, CryptoMsg *data)
 {
     TSS2_RC rc;
 
@@ -634,10 +626,11 @@ void TPM2_sys_nv_write(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, Cry
                                            &write_data,
                                            0,
                                            &auth_resp));
-    goto_if_error (rc, "Tss2_Sys_NV_Write");
+    TPM2_RETURN_IF_ERROR(rc);
+    return TSS2_RC_SUCCESS;
 }
 
-void TPM2_sys_nv_read(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, CryptoMsg **data)
+TSS2_RC TPM2_sys_nv_read(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, CryptoMsg **data)
 {
     TSS2_RC rc;
     TPM2B_MAX_NV_BUFFER nv_buf = { 0, };
@@ -651,6 +644,10 @@ void TPM2_sys_nv_read(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, Cryp
                           0,
                           &nv_buf,
                           &auth_resp);
-    goto_if_error (rc, "Tss2_Sys_NV_Read");
-    CryptoMsg_new(nv_buf.buffer, nv_buf.size, data);
+    TPM2_RETURN_IF_ERROR(rc);
+
+    CryptoReturnCode crc = CryptoMsg_new(nv_buf.buffer, nv_buf.size, data);
+    if (crc != CRYPTO_RC_SUCCESS)
+        return TPM2_RC_FAILURE;
+    return TSS2_RC_SUCCESS;
 }

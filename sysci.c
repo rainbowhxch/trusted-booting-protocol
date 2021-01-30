@@ -20,7 +20,7 @@
 
 const static char *SYSCI_EFI_FILE_PATH = "/boot/EFI/arch/grubx64.efi";
 
-SysciReturnCode Sysci_empty_new(Sysci **new_empty_sysci) {
+static SysciReturnCode Sysci_empty_new(Sysci **new_empty_sysci) {
 	(*new_empty_sysci) = malloc(sizeof(Sysci));
 	if ((*new_empty_sysci) == NULL)
 		return SYSCI_RC_BAD_ALLOCATION;
@@ -31,7 +31,7 @@ SysciReturnCode Sysci_empty_new(Sysci **new_empty_sysci) {
 	return SYSCI_RC_SUCCESS;
 }
 
-void Sysci_empty_free(Sysci *empty_sysci) {
+static void Sysci_empty_free(Sysci *empty_sysci) {
 	if (empty_sysci) {
 		free(empty_sysci);
 		empty_sysci = NULL;

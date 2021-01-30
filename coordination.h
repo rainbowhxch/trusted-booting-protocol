@@ -10,9 +10,22 @@ typedef enum {
 	COORDINATION_RC_BAD_DATA,
 } CoordinationReturnCode;
 
+inline static const char *Coordination_get_error_msg(CoordinationReturnCode rc) {
+	switch (rc) {
+		case COORDINATION_RC_BAD_ALLOCATION:
+			return "Allocate memory failed!";
+		case COORDINATION_RC_BAD_DATA:
+			return "Get bad data when communicate with coordination!";
+		default:
+			return "Success";
+	}
+}
+
 typedef enum {
 	COORDINATION_MT_GET_SYSCI,
-	COORDINATION_MT_SEND_SYSCI
+	COORDINATION_MT_SEND_SYSCI,
+	COORDINATION_MT_VERIFY_SUCCESS,
+	COORDINATION_MT_VERIFY_FAILED,
 } CoordinationMsgType;
 
 typedef size_t CoordinationMsgDataLength;

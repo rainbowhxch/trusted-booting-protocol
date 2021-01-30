@@ -1,15 +1,18 @@
-#ifndef TPM2_H
-#define TPM2_H
+#ifndef CHX_TPM2_H
+#define CHX_TPM2_H
 
 #include <tss2/tss2_tcti.h>
 #include <tss2/tss2_esys.h>
 
 #include "sysci.h"
 
-#define goto_if_error(r,msg) \
-    if (r != TSS2_RC_SUCCESS) { \
-        printf("%s\n", msg); \
-        exit(0); \
+#define TPM2_GOTO_IF_ERROR(rc) \
+    if (rc != TSS2_RC_SUCCESS) { \
+        goto error; \
+    }
+#define TPM2_RETURN_IF_ERROR(rc) \
+    if (rc != TSS2_RC_SUCCESS) { \
+        return rc; \
     }
 
 /* Default ABI version */
@@ -114,31 +117,27 @@ static TSS2_RC create_policy_session (TSS2_SYS_CONTEXT *sys_ctx, TPMI_SH_AUTH_SE
 static TSS2_SYS_CONTEXT *sys_init_from_tcti_ctx(TSS2_TCTI_CONTEXT * tcti_ctx);
 static TSS2_SYS_CONTEXT *sys_init_from_opts(test_opts_t * options);
 static void sys_teardown(TSS2_SYS_CONTEXT * sys_context);
-static void sys_teardown_full(TSS2_SYS_CONTEXT * sys_context);
+static TSS2_RC sys_teardown_full(TSS2_SYS_CONTEXT * sys_context);
 static TSS2_RC setup_nv(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index);
 static TSS2_RC teardown_nv(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index);
 static void TPM2_init_mssim(TSS2_TCTI_CONTEXT **tcti_context, TSS2_TCTI_CONTEXT **tcti_inner);
 
-void TPM2_esys_context_init(ESYS_CONTEXT **esys_ctx, TSS2_TCTI_CONTEXT **tcti_inner);
+TSS2_RC TPM2_esys_context_init(ESYS_CONTEXT **esys_ctx, TSS2_TCTI_CONTEXT **tcti_inner);
 
-void TPM2_esys_context_teardown(ESYS_CONTEXT *esys_ctx, TSS2_TCTI_CONTEXT *tcti_inner);
+TSS2_RC TPM2_esys_context_teardown(ESYS_CONTEXT *esys_ctx, TSS2_TCTI_CONTEXT *tcti_inner);
 
-void TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_digest);
+TSS2_RC TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_digest);
 
-void TPM2_esys_nv_read(ESYS_CONTEXT *ctx, ESYS_TR nvHandle, CryptoMsg **data);
+TSS2_RC TPM2_sys_context_init(TSS2_SYS_CONTEXT **sys_context);
 
-void TPM2_esys_nv_write(ESYS_CONTEXT *ctx, ESYS_TR *nvHandle, CryptoMsg *data);
-
-void TPM2_sys_context_init(TSS2_SYS_CONTEXT **sys_context);
-
-void TPM2_sys_context_teardown(TSS2_SYS_CONTEXT *sys_context);
+TSS2_RC TPM2_sys_context_teardown(TSS2_SYS_CONTEXT *sys_context);
 
 TSS2_RC TPM2_sys_nv_init(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index);
 
-void TPM2_sys_nv_write(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, CryptoMsg *data);
+TSS2_RC TPM2_sys_nv_write(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, CryptoMsg *data);
 
-void TPM2_sys_nv_read(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, CryptoMsg **data);
+TSS2_RC TPM2_sys_nv_read(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, CryptoMsg **data);
 
 TSS2_RC TPM2_sys_nv_teardown(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index);
 
-#endif /* TPM2_H */
+#endif /* CHX_TPM2_H */

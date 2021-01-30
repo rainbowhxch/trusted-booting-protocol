@@ -20,10 +20,22 @@ typedef CryptoMsg *SysciItem;
 typedef enum {
 	SYSCI_RC_SUCCESS,
 	SYSCI_RC_BAD_ALLOCATION,
-	SYSCI_RC_CRYPTO_FAILED,
 	SYSCI_RC_EVP_FAILED,
 	SYSCI_RC_OPEN_FILE_FAILED,
 } SysciReturnCode;
+
+inline static const char *Sysci_get_error_msg(SysciReturnCode rc) {
+	switch (rc) {
+		case SYSCI_RC_BAD_ALLOCATION:
+			return "Allocate memory failed!";
+		case SYSCI_RC_EVP_FAILED:
+			return "OpenSSL library encryption-decryption openration failed!";
+		case SYSCI_RC_OPEN_FILE_FAILED:
+			return "Open file failed";
+		default:
+			return "Success";
+	}
+}
 
 typedef struct {
 	SysciItem hardware_id;
@@ -32,9 +44,9 @@ typedef struct {
 	SysciItem proxy_p_sha256;
 } Sysci;
 
-SysciReturnCode Sysci_empty_new(Sysci **new_empty_sysci);
+static SysciReturnCode Sysci_empty_new(Sysci **new_empty_sysci);
 
-void Sysci_empty_free(Sysci *empty_sysci);
+static void Sysci_empty_free(Sysci *empty_sysci);
 
 SysciReturnCode Sysci_new(Sysci **new_sysci);
 

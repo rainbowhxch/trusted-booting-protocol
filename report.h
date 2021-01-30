@@ -28,6 +28,10 @@ typedef struct {
 	ReportItem signature;
 } Report;
 
+static ReportReturnCode Report_empty_new(Report **report);
+
+static void Report_empty_free(Report *report);
+
 ReportReturnCode Report_new(const Sysci *sysci, const char *id, Report **report);
 
 void Report_free(Report *report);
@@ -38,6 +42,6 @@ ReportReturnCode Report_verify(Report *report, int *verify_res);
 
 ReportReturnCode Report_to_json(Report *report, char **report_json);
 
-ReportReturnCode Report_parse_from_json(const char *str, Report **report);
+ReportReturnCode Report_parse_from_json(const char *report_json, Report **report);
 
 #endif /* REPORT_H */

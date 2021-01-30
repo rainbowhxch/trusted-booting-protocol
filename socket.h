@@ -16,7 +16,8 @@ typedef enum {
 
 typedef enum {
 	SOCKET_MT_GET_REPORT,
-	SOCKET_MT_SEND_REPORT
+	SOCKET_MT_SEND_REPORT,
+	SOCKET_MT_VERIFY_RESULT,
 } SocketMsgType;
 
 typedef size_t SocketDataLength;
