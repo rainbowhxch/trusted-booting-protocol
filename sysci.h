@@ -13,6 +13,13 @@
 		return rc; \
 	}
 
+#define SYSCI_WRITE_LOG_AND_GOTO_IF_ERROR(fd, rc, error) \
+	if (rc != SYSCI_RC_SUCCESS) { \
+		const char *sysci_error_msg = Sysci_get_error_msg(rc); \
+		Log_write_a_error_log(fd, sysci_error_msg); \
+		goto error; \
+	}
+
 const static char *kPROXY_P_FILE_PATH = "./proxy-p";
 
 typedef CryptoMsg *SysciItem;

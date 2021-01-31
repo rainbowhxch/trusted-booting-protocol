@@ -5,6 +5,13 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#define SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(fd, rc, error) \
+	if (rc != SOCKET_RC_SUCCESS) { \
+		const char *socket_error_msg = Socket_get_error_msg(rc); \
+		Log_write_a_error_log(fd, socket_error_msg); \
+		goto error; \
+	}
+
 typedef struct sockaddr SA;
 
 typedef enum {
@@ -13,6 +20,19 @@ typedef enum {
 	SOCKET_RC_SOCKET_FAILED,
 	SOCKET_RC_BAD_DATA,
 } SocketReturnCode;
+
+inline static const char *Socket_get_error_msg(SocketReturnCode rc) {
+	switch (rc) {
+		case SOCKET_RC_BAD_ALLOCATION:
+			return "Allocate memory failed!";
+		case SOCKET_RC_SOCKET_FAILED:
+			return "Socket initialize failed!";
+		case SOCKET_RC_BAD_DATA:
+			return "Get bad data from peer!";
+		default:
+			return "Success";
+	}
+}
 
 typedef enum {
 	SOCKET_MT_GET_REPORT,

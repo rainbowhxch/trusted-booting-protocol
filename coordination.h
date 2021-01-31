@@ -4,6 +4,13 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#define COORDINATION_WRITE_LOG_AND_GOTO_IF_ERROR(fd, rc, error) \
+	if (rc != COORDINATION_RC_SUCCESS) { \
+		const char *coordination_error_msg = Coordination_get_error_msg(rc); \
+		Log_write_a_error_log(fd, coordination_error_msg); \
+		goto error; \
+	}
+
 typedef enum {
 	COORDINATION_RC_SUCCESS,
 	COORDINATION_RC_BAD_ALLOCATION,

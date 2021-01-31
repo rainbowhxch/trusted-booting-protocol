@@ -10,6 +10,13 @@
 		goto error; \
 	}
 
+#define CRYPTO_WRITE_LOG_AND_GOTO_IF_ERROR(fd, rc, error) \
+	if (rc != CRYPTO_RC_SUCCESS) { \
+		const char *crypto_error_msg = Crypto_get_error_msg(rc); \
+		Log_write_a_error_log(fd, crypto_error_msg); \
+		goto error; \
+	}
+
 const static char *kRSA_PUB_FILE_PATH = "./rsa-key/rsa-pub.key";
 const static char *kRSA_PRI_FILE_PATH = "./rsa-key/rsa-pri.key";
 const static int kRSA_KEY_LENGTH = 256;
@@ -20,6 +27,19 @@ typedef enum {
 	CRYPTO_RC_EVP_FAILED,
 	CRYPTO_RC_OPEN_FILE_FAILED,
 } CryptoReturnCode;
+
+inline static const char *Crypto_get_error_msg(CryptoReturnCode rc) {
+	switch (rc) {
+		case CRYPTO_RC_BAD_ALLOCATION:
+			return "Allocate memory failed!";
+		case CRYPTO_RC_EVP_FAILED:
+			return "OpenSSL library encryption-decryption openration failed!";
+		case CRYPTO_RC_OPEN_FILE_FAILED:
+			return "Open file failed!";
+		default:
+			return "Success!";
+	}
+}
 
 typedef size_t CryptoMsgDataLength;
 typedef unsigned char *CryptoMsgData;

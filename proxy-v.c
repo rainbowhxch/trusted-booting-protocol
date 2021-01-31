@@ -1,69 +1,100 @@
 #include <stdio.h>
 #include <netinet/in.h>
+#include <stdlib.h>
 #include <string.h>
+#include <tss2/tss2_common.h>
 
 #include "crypto.h"
+#include "log.h"
+#include "sysci.h"
 #include "verify-response.h"
 #include "socket.h"
 #include "report.h"
 #include "tpm2.h"
 #include "util.h"
 
-const static uint16_t kPROXY_V_PORT = 10006;
+static const uint16_t kPROXY_V_PORT = 10006;
+static const char *kLOG_FILE_PATH = "./log/proxy-v.log";
+static FILE *log_fd = NULL;
 
 static int kSOCK_FD;
 static struct sockaddr_in kPROXY_P_ADDR;
 static socklen_t kPROXY_P_ADDR_LEN = sizeof(kPROXY_P_ADDR);
 static size_t kRETRY_CNT = 5;
 static ReportItem kPRE_NONCE = NULL;
-static time_t kTIME_INTERVAL = 30;
+static const time_t kTIME_INTERVAL = 30;
 
-static void requre_report_from_proxy_p(Report **report) {
-	SocketMsg *readed_msg;
-	Socket_send_to_peer(kSOCK_FD,
-						(SA *)&kPROXY_P_ADDR,
-						kPROXY_P_ADDR_LEN,
-						SOCKET_MT_GET_REPORT,
-						NULL,
-						0);
-	Socket_read_from_peer(kSOCK_FD, (SA *)&kPROXY_P_ADDR, &kPROXY_P_ADDR_LEN, &readed_msg);
+static int requre_report_from_proxy_p(Report **report) {
+	SocketMsg *readed_msg = NULL;
+	SocketReturnCode src = Socket_send_to_peer(kSOCK_FD,
+											   (SA *)&kPROXY_P_ADDR,
+											   kPROXY_P_ADDR_LEN,
+										       SOCKET_MT_GET_REPORT,
+										       NULL,
+										       0);
+	SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, requre_report_error);
+	src = Socket_read_from_peer(kSOCK_FD,
+							    (SA *)&kPROXY_P_ADDR,
+							    &kPROXY_P_ADDR_LEN,
+							    &readed_msg);
+	SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, requre_report_error);
 	if (readed_msg->type != SOCKET_MT_SEND_REPORT) {
-
+		Log_write_a_error_log(log_fd, "Get error message type from readed SocketMsg");
+		return 0;
 	}
-	Report_parse_from_json((char *)readed_msg->data, report);
+	ReportReturnCode rrc = Report_parse_from_json((char *)readed_msg->data, report);
+	REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, rrc, requre_report_error);
 	SocketMsg_free(readed_msg);
+	return 1;
+requre_report_error:
+	SocketMsg_free(readed_msg);
+	return 0;
 }
 
-static void send_verify_response_to_proxy_p(ReportItem nonce, VerifyResult verify_result) {
-	VerifyResponse *verify_response;
-	VerifyResponse_new(nonce, verify_result, &verify_response);
-	char *verify_response_json;
-	VerifyResponse_to_json(verify_response, &verify_response_json);
+static int send_verify_response_to_proxy_p(ReportItem nonce, VerifyResult verify_result) {
+	VerifyResponse *verify_response = NULL;
+	char *verify_response_json = NULL;
+	VerifyResponseReturnCode vrc = VerifyResponse_new(nonce, verify_result, &verify_response);
+	VERIFY_RESPONSE_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, vrc, send_verify_error);
+	vrc = VerifyResponse_to_json(verify_response, &verify_response_json);
+	VERIFY_RESPONSE_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, vrc, send_verify_error);
 	VerifyResponse_free(verify_response);
-	Socket_send_to_peer(kSOCK_FD,
-						(SA *)&kPROXY_P_ADDR,
-						kPROXY_P_ADDR_LEN,
-						SOCKET_MT_VERIFY_RESULT,
-						(uint8_t *)verify_response_json,
-						strlen(verify_response_json)+1);
+	SocketReturnCode src = Socket_send_to_peer(kSOCK_FD,
+											   (SA *)&kPROXY_P_ADDR,
+											   kPROXY_P_ADDR_LEN,
+											   SOCKET_MT_VERIFY_RESULT,
+											   (uint8_t *)verify_response_json,
+											   strlen(verify_response_json)+1);
+	SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, send_verify_error);
 	free(verify_response_json);
+	return 1;
+send_verify_error:
+	VerifyResponse_free(verify_response);
+	free(verify_response_json);
+	return 0;
 }
 
 static int verify_report(Report **report) {
 	int verify_res;
-	Report_verify((*report), &verify_res);
+	ReportReturnCode rrc = Report_verify((*report), &verify_res);
+	REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, rrc, verify_report_error);
 	while (verify_res == 0 && kRETRY_CNT != 0) {
 		Report_free(*report);
-		requre_report_from_proxy_p(report);
 		--kRETRY_CNT;
-		Report_verify((*report), &verify_res);
+		if (!requre_report_from_proxy_p(report))
+			continue;
+		rrc = Report_verify((*report), &verify_res);
+		REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, rrc, verify_report_error);
 	}
 	return kRETRY_CNT != 0;
+verify_report_error:
+	return 0;
 }
 
 static int verify_nonce(ReportItem nonce) {
 	if (kPRE_NONCE == NULL) {
-		CryptoMsg_new(nonce->data, nonce->data_len, &kPRE_NONCE);
+		CryptoReturnCode crc = CryptoMsg_new(nonce->data, nonce->data_len, &kPRE_NONCE);
+		CRYPTO_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, crc, verify_nonce_error);
 		return 1;
 	}
 	if (memcmp(nonce, kPRE_NONCE, kPRE_NONCE->data_len) == 0) {
@@ -72,6 +103,8 @@ static int verify_nonce(ReportItem nonce) {
 		memcpy(kPRE_NONCE->data, nonce->data, kPRE_NONCE->data_len);
 		return 1;
 	}
+verify_nonce_error:
+	return 0;
 }
 
 static int verify_timestamp(ReportItem timestamp) {
@@ -82,44 +115,65 @@ static int verify_timestamp(ReportItem timestamp) {
 }
 
 static int verify_sysci(ReportItem encrypted_sysci) {
-	Sysci *sysci;
-	Sysci_decrypt(encrypted_sysci, &sysci);
-	ESYS_CONTEXT *esys_ctx;
-	TSS2_TCTI_CONTEXT *tcti_inner;
-	TPM2_esys_context_init(&esys_ctx, &tcti_inner);
-	CryptoMsg *sysci_digest;
-	TPM2_esys_pcr_extend(esys_ctx, sysci, &sysci_digest);
-	Sysci_free(sysci);
-	TPM2_esys_context_teardown(esys_ctx, tcti_inner);
+	Sysci *sysci = NULL;
+	ESYS_CONTEXT *esys_ctx = NULL;
+	TSS2_TCTI_CONTEXT *tcti_inner = NULL;
+	CryptoMsg *sysci_digest = NULL;
+	TSS2_SYS_CONTEXT *sys_ctx = NULL;
+	CryptoMsg *pre_sysci_digest = NULL;
 
-	TSS2_SYS_CONTEXT *sys_ctx;
-	TPM2_sys_context_init(&sys_ctx);
-	TPM2_sys_nv_init(sys_ctx, INDEX_LCP_OWN);
-	TPM2_sys_nv_write(sys_ctx, INDEX_LCP_OWN, sysci_digest);
-	CryptoMsg *pre_sysci_digest;
-	TPM2_sys_nv_read(sys_ctx, INDEX_LCP_OWN, &pre_sysci_digest);
-	TPM2_sys_nv_teardown(sys_ctx, INDEX_LCP_OWN);
-	TPM2_sys_context_teardown(sys_ctx);
+	SysciReturnCode src = Sysci_decrypt(encrypted_sysci, &sysci);
+	SYSCI_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, verify_sysci_error);
+	TSS2_RC trc = TPM2_esys_context_init(&esys_ctx, &tcti_inner);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	trc = TPM2_esys_pcr_extend(esys_ctx, sysci, &sysci_digest);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	Sysci_free(sysci);
+	trc = TPM2_esys_context_teardown(esys_ctx, tcti_inner);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+
+	trc = TPM2_sys_context_init(&sys_ctx);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	trc = TPM2_sys_nv_init(sys_ctx, INDEX_LCP_OWN);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	trc = TPM2_sys_nv_write(sys_ctx, INDEX_LCP_OWN, sysci_digest);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	trc = TPM2_sys_nv_read(sys_ctx, INDEX_LCP_OWN, &pre_sysci_digest);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	trc = TPM2_sys_nv_teardown(sys_ctx, INDEX_LCP_OWN);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	trc = TPM2_sys_context_teardown(sys_ctx);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
 
 	int verify_res = (memcmp(sysci_digest->data, pre_sysci_digest->data, sysci_digest->data_len) == 0);
 	CryptoMsg_free(sysci_digest);
 	CryptoMsg_free(pre_sysci_digest);
 	return verify_res;
+verify_sysci_error:
+	Sysci_free(sysci);
+	CryptoMsg_free(sysci_digest);
+	CryptoMsg_free(pre_sysci_digest);
+	TPM2_esys_context_teardown(esys_ctx, tcti_inner);
+	TPM2_sys_context_teardown(sys_ctx);
+	return 0;
 }
 
 static void parse_msg_loop() {
 	while (1) {
 		SocketMsg *sock_msg;
-		Socket_read_from_peer(kSOCK_FD, (SA *)&kPROXY_P_ADDR, &kPROXY_P_ADDR_LEN, &sock_msg);
+		SocketReturnCode src = Socket_read_from_peer(kSOCK_FD, (SA *)&kPROXY_P_ADDR, &kPROXY_P_ADDR_LEN, &sock_msg);
+		SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, parse_msg_error);
 		switch (sock_msg->type) {
 			case SOCKET_MT_SEND_REPORT:
 				{
-					Report *report;
-					Report_parse_from_json((char *)sock_msg->data, &report);
+					Report *report = NULL;
+					ReportReturnCode rrc = Report_parse_from_json((char *)sock_msg->data, &report);
+					REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, rrc, parse_report_error);
 					SocketMsg_free(sock_msg);
 
 					if (verify_report(&report) == 0) {
-						send_verify_response_to_proxy_p(report->nonce, VERIFY_FAILED);
+						if (send_verify_response_to_proxy_p(report->nonce, VERIFY_FAILED) == 0)
+							goto parse_report_error;
 						break;
 					} else {
 						kRETRY_CNT = 5;
@@ -131,24 +185,30 @@ static void parse_msg_loop() {
 						break;
 
 					if (verify_sysci(report->encrypted_sysci) == 1) {
-						send_verify_response_to_proxy_p(report->nonce, VERIFY_SUCCESS);
+						if (send_verify_response_to_proxy_p(report->nonce, VERIFY_SUCCESS) == 0)
+							goto parse_report_error;
 					} else {
-						send_verify_response_to_proxy_p(report->nonce, VERIFY_FAILED);
+						if (send_verify_response_to_proxy_p(report->nonce, VERIFY_FAILED) == 0)
+							goto parse_report_error;
 					}
+parse_report_error:
 					Report_free(report);
 					break;
 				}
 			default:
-				printf("get error SocketMsg type...\n");
+				Log_write_a_error_log(log_fd, "get error SocketMsg type");
 				break;
 		}
 	}
-
+parse_msg_error:
+	exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[]) {
+	log_fd = Log_open_file(kLOG_FILE_PATH);
 	Socket_udp_init(kPROXY_V_PORT, &kSOCK_FD);
 	parse_msg_loop();
+	Log_close_file(log_fd);
 
 	return 0;
 }

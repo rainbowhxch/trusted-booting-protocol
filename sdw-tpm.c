@@ -12,58 +12,33 @@
 #include "sysci.h"
 #include "log.h"
 
-#define WRITE_LOG_IF_SYSCI_ERROR(rc) \
-	if (rc != SYSCI_RC_SUCCESS) { \
-		const char *sysci_error_msg = Sysci_get_error_msg(rc); \
-		write_a_error_log(sysci_error_msg); \
-	}
-
-#define WRITE_LOG_IF_Coordination_ERROR(rc) \
-	if (rc != COORDINATION_RC_SUCCESS) { \
-		const char *coordination_error_msg = Coordination_get_error_msg(rc); \
-		write_a_error_log(coordination_error_msg); \
-	}
-
 static const char *kLOG_FILE_PATH = "./log/sdw-tpm.log";
-static FILE *fd = NULL;
+static FILE *log_fd = NULL;
 
-inline static void write_a_error_log(const char *format, ...) {
-	va_list args;
-	va_start(args, format);
-	Log_write_a_log(fd, "sdw-tpm", "Error", format, args);
-	va_end(args);
-}
-
-inline static void write_a_normal_log(const char *format, ...) {
-	va_list args;
-	va_start(args, format);
-	Log_write_a_log(fd, "sdw-tpm", "normal", format, args);
-	va_end(args);
-}
-
-static void check_sys_env() {
+static int check_sys_env() {
 	if (!file_exists(kPROXY_P_FILE_PATH)) {
-		write_a_error_log("proxy-p file does't exit");
-		exit(EXIT_FAILURE);
+		Log_write_a_error_log(log_fd, "proxy-p file does't exit");
+		return 0;
 	}
+	return 1;
 }
 
 static int *proxy_p_start(pid_t *child_pid) {
 	int fd_write[2], fd_read[2];
 	if (pipe(fd_write) < 0 || pipe(fd_read) <0) {
-		write_a_error_log("pipe error");
+		Log_write_a_error_log(log_fd, "pipe error");
 		exit(EXIT_FAILURE);
 	}
 
 	pid_t pid;
 	if ((pid = fork()) < 0) {
-		write_a_error_log("fork error");
+		Log_write_a_error_log(log_fd, "fork error");
 		exit(EXIT_FAILURE);
 	} else if (pid > 0) {
 		close(fd_write[0]);
 		close(fd_read[1]);
 		*child_pid = pid;
-		write_a_normal_log("proxy-p started");
+		Log_write_a_normal_log(log_fd, "proxy-p started");
 	} else {
 		close(fd_write[1]);
 		close(fd_read[0]);
@@ -84,18 +59,18 @@ static int *proxy_p_start(pid_t *child_pid) {
 	return res;
 }
 
-static void proxy_p_finish(pid_t child_pid, int *fd)
+static void proxy_p_finish(pid_t child_pid, int *child_fds)
 {
-	close(fd[0]);
-	close(fd[1]);
-	free(fd);
+	close(child_fds[0]);
+	close(child_fds[1]);
+	free(child_fds);
 	int child_exit_status;
 	waitpid(child_pid, &child_exit_status, 0);
 	if (child_exit_status == EXIT_FAILURE) {
-		write_a_normal_log("proxy-p abnormally stop");
+		Log_write_a_normal_log(log_fd, "proxy-p abnormally stop");
 		exit(EXIT_FAILURE);
 	}
-	write_a_normal_log("proxy-p successfully stop");
+	Log_write_a_normal_log(log_fd, "proxy-p successfully stop");
 }
 
 void test_crypto()
@@ -121,24 +96,24 @@ static void proxy_p_loop() {
 	CoordinationMsg *msg;
 	while (1) {
 		CoordinationReturnCode crc = Coordination_read_from_peer(coordination_fds[1], &msg);
-		WRITE_LOG_IF_Coordination_ERROR(crc);
+		COORDINATION_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, crc, finish);
 		switch (msg->type) {
 			case COORDINATION_MT_GET_SYSCI:
 				{
-					Sysci *sysci;
+					Sysci *sysci = NULL;
+					char *json_sysci = NULL;
 					SysciReturnCode src = Sysci_new(&sysci);
-					WRITE_LOG_IF_SYSCI_ERROR(src);
-					char *json_sysci;
+					SYSCI_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, get_sysci_error);
 					src = Sysci_to_json(sysci, &json_sysci);
-					WRITE_LOG_IF_SYSCI_ERROR(src);
+					SYSCI_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, get_sysci_error);
 
 					crc = Coordination_send_to_peer(coordination_fds[0],
 													COORDINATION_MT_SEND_SYSCI,
 													(uint8_t *)json_sysci,
 													strlen(json_sysci)+1);
-					WRITE_LOG_IF_Coordination_ERROR(crc);
-
-					free(json_sysci);
+					COORDINATION_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, crc, get_sysci_error);
+get_sysci_error:
+					if (json_sysci)  free(json_sysci);
 					Sysci_free(sysci);
 					break;
 				}
@@ -146,7 +121,7 @@ static void proxy_p_loop() {
 			case COORDINATION_MT_VERIFY_FAILED:
 				goto finish;
 			default:
-				write_a_error_log("get error coordination message type");
+				Log_write_a_error_log(log_fd, "get error coordination message type");
 				break;
 		}
 	}
@@ -155,10 +130,11 @@ finish:
 }
 
 int main(int argc, char *argv[]) {
-	fd = Log_open_file(kLOG_FILE_PATH);
-	check_sys_env();
+	log_fd = Log_open_file(kLOG_FILE_PATH);
+	if (!check_sys_env())
+		exit(EXIT_FAILURE);
 	proxy_p_loop();
-	Log_close_file(fd);
+	Log_close_file(log_fd);
 
     return 0;
 }

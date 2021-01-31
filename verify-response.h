@@ -8,6 +8,13 @@
 		return rc; \
 	}
 
+#define VERIFY_RESPONSE_WRITE_LOG_AND_GOTO_IF_ERROR(fd, rc, error) \
+	if (rc != VERIFY_RESPONSE_RC_SUCCESS) { \
+		const char *verify_response_error_msg = VerifyResponse_get_error_msg(rc); \
+		Log_write_a_error_log(fd, verify_response_error_msg); \
+		goto error; \
+	}
+
 typedef enum {
 	VERIFY_SUCCESS,
 	VERIFY_FAILED,
@@ -19,6 +26,19 @@ typedef enum {
 	VERIFY_RESPONSE_RC_EVP_FAILED,
 	VERIFY_RESPONSE_RC_OPEN_FILE_FAILED,
 } VerifyResponseReturnCode;
+
+inline static const char *VerifyResponse_get_error_msg(VerifyResponseReturnCode rc) {
+	switch (rc) {
+		case VERIFY_RESPONSE_RC_BAD_ALLOCATION:
+			return "Allocate memory failed!";
+		case VERIFY_RESPONSE_RC_EVP_FAILED:
+			return "OpenSSL library encryption-decryption openration failed!";
+		case VERIFY_RESPONSE_RC_OPEN_FILE_FAILED:
+			return "Open file failed!";
+		default:
+			return "Success!";
+	}
+}
 
 typedef CryptoMsg *VerifyResponseItem;
 

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <tss2/tss2_sys.h>
 #include <tss2/tss2_tcti_mssim.h>
+#include <tss2/tss2_tpm2_types.h>
 
 TSS2_TCTI_CONTEXT_PROXY *tcti_proxy_cast (TSS2_TCTI_CONTEXT *ctx)
 {
@@ -353,7 +354,14 @@ TSS2_RC TPM2_esys_context_init(ESYS_CONTEXT **esys_ctx, TSS2_TCTI_CONTEXT **tcti
 
 TSS2_RC TPM2_esys_context_teardown(ESYS_CONTEXT *esys_ctx, TSS2_TCTI_CONTEXT *tcti_inner)
 {
-    return esys_teardown_full(esys_ctx, tcti_inner);
+    if (esys_ctx == NULL)
+        return TPM2_RC_FAILURE;
+    if (tcti_inner == NULL)
+        return TPM2_RC_FAILURE;
+    TSS2_RC rc = esys_teardown_full(esys_ctx, tcti_inner);
+    esys_ctx = NULL;
+    tcti_inner = NULL;
+    return rc;
 }
 
 TSS2_RC TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_digest)
@@ -551,7 +559,11 @@ TSS2_RC TPM2_sys_context_init(TSS2_SYS_CONTEXT **sys_context)
 
 TSS2_RC TPM2_sys_context_teardown(TSS2_SYS_CONTEXT *sys_context)
 {
-    return sys_teardown_full(sys_context);
+    if (sys_context == NULL)
+        return TPM2_RC_FAILURE;
+    TSS2_RC rc = sys_teardown_full(sys_context);
+    sys_context = NULL;
+    return rc;
 }
 
 TSS2_RC TPM2_sys_nv_init(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index)

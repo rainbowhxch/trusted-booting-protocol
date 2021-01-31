@@ -1,8 +1,10 @@
 #ifndef CHX_TPM2_H
 #define CHX_TPM2_H
 
+#include <tss2/tss2_common.h>
 #include <tss2/tss2_tcti.h>
 #include <tss2/tss2_esys.h>
+#include <tss2/tss2_tpm2_types.h>
 
 #include "sysci.h"
 
@@ -14,6 +16,13 @@
     if (rc != TSS2_RC_SUCCESS) { \
         return rc; \
     }
+
+#define TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(fd, rc, error) \
+	if (rc != TSS2_RC_SUCCESS) { \
+		const char *tpm2_error_msg = TPM2_get_error_msg(rc); \
+		Log_write_a_error_log(fd, tpm2_error_msg); \
+		goto error; \
+	}
 
 /* Default ABI version */
 #define TSSWG_INTEROP 1
@@ -103,6 +112,15 @@ static const TSS2L_SYS_AUTH_COMMAND auth_cmd_null_pwd = {
         },
     },
 };
+
+inline static const char *TPM2_get_error_msg(TSS2_RC rc) {
+	switch (rc) {
+		case TSS2_RC_SUCCESS:
+			return "Success!";
+		default:
+			return "TPM2 get unexpected error!";
+	}
+}
 
 static TSS2_TCTI_CONTEXT *tcti_socket_init(char const *host, uint16_t port);
 static TSS2_TCTI_CONTEXT *tcti_init_from_opts(test_opts_t * options);
