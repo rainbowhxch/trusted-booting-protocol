@@ -221,14 +221,3 @@ error:
 	Sysci_free(*sysci);
 	SYSCI_RETURN_IF_CRYPTO_ERROR(crc);
 }
-
-void Sysci_print(const Sysci *sysci) {
-	printf("Hardware identifier: \t");
-	SYSCI_PRINT_CRYPTOMSG(sysci->hardware_id);
-	printf("Operating system release: \t");
-	SYSCI_PRINT_CRYPTOMSG(sysci->system_release);
-	printf("efi sha256: \t");
-	SYSCI_PRINT_CRYPTOMSG(sysci->efi_sha256);
-	printf("proxy-p sha256: \t");
-	SYSCI_PRINT_CRYPTOMSG(sysci->proxy_p_sha256);
-}

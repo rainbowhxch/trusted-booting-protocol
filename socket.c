@@ -33,8 +33,10 @@ SocketReturnCode SocketMsg_new(const SocketMsgType type, const SocketData data, 
 }
 
 void SocketMsg_free(SocketMsg *msg) {
-	if (msg)
+	if (msg) {
 		free(msg);
+		msg = NULL;
+	}
 }
 
 void Socket_get_sockaddr_from_string(const char *ip, uint16_t port, struct sockaddr_in *addr) {

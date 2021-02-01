@@ -15,14 +15,14 @@
 
 static const uint16_t kPROXY_V_PORT = 10006;
 static const char *kLOG_FILE_PATH = "./log/proxy-v.log";
-static FILE *log_fd = NULL;
+static const time_t kTIME_INTERVAL = 30;
 
 static int kSOCK_FD;
 static struct sockaddr_in kPROXY_P_ADDR;
 static socklen_t kPROXY_P_ADDR_LEN = sizeof(kPROXY_P_ADDR);
 static size_t kRETRY_CNT = 5;
 static ReportItem kPRE_NONCE = NULL;
-static const time_t kTIME_INTERVAL = 30;
+static FILE *kLOG_FD = NULL;
 
 static int requre_report_from_proxy_p(Report **report) {
 	SocketMsg *readed_msg = NULL;
@@ -32,18 +32,18 @@ static int requre_report_from_proxy_p(Report **report) {
 										       SOCKET_MT_GET_REPORT,
 										       NULL,
 										       0);
-	SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, requre_report_error);
+	SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, src, requre_report_error);
 	src = Socket_read_from_peer(kSOCK_FD,
 							    (SA *)&kPROXY_P_ADDR,
 							    &kPROXY_P_ADDR_LEN,
 							    &readed_msg);
-	SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, requre_report_error);
+	SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, src, requre_report_error);
 	if (readed_msg->type != SOCKET_MT_SEND_REPORT) {
-		Log_write_a_error_log(log_fd, "Get error message type from readed SocketMsg");
+		Log_write_a_error_log(kLOG_FD, "Get error message type from readed SocketMsg.");
 		return 0;
 	}
 	ReportReturnCode rrc = Report_parse_from_json((char *)readed_msg->data, report);
-	REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, rrc, requre_report_error);
+	REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, rrc, requre_report_error);
 	SocketMsg_free(readed_msg);
 	return 1;
 requre_report_error:
@@ -55,9 +55,9 @@ static int send_verify_response_to_proxy_p(ReportItem nonce, VerifyResult verify
 	VerifyResponse *verify_response = NULL;
 	char *verify_response_json = NULL;
 	VerifyResponseReturnCode vrc = VerifyResponse_new(nonce, verify_result, &verify_response);
-	VERIFY_RESPONSE_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, vrc, send_verify_error);
+	VERIFY_RESPONSE_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, vrc, send_verify_error);
 	vrc = VerifyResponse_to_json(verify_response, &verify_response_json);
-	VERIFY_RESPONSE_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, vrc, send_verify_error);
+	VERIFY_RESPONSE_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, vrc, send_verify_error);
 	VerifyResponse_free(verify_response);
 	SocketReturnCode src = Socket_send_to_peer(kSOCK_FD,
 											   (SA *)&kPROXY_P_ADDR,
@@ -65,7 +65,7 @@ static int send_verify_response_to_proxy_p(ReportItem nonce, VerifyResult verify
 											   SOCKET_MT_VERIFY_RESULT,
 											   (uint8_t *)verify_response_json,
 											   strlen(verify_response_json)+1);
-	SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, send_verify_error);
+	SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, src, send_verify_error);
 	free(verify_response_json);
 	return 1;
 send_verify_error:
@@ -77,14 +77,14 @@ send_verify_error:
 static int verify_report(Report **report) {
 	int verify_res;
 	ReportReturnCode rrc = Report_verify((*report), &verify_res);
-	REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, rrc, verify_report_error);
+	REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, rrc, verify_report_error);
 	while (verify_res == 0 && kRETRY_CNT != 0) {
 		Report_free(*report);
 		--kRETRY_CNT;
 		if (!requre_report_from_proxy_p(report))
 			continue;
 		rrc = Report_verify((*report), &verify_res);
-		REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, rrc, verify_report_error);
+		REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, rrc, verify_report_error);
 	}
 	return kRETRY_CNT != 0;
 verify_report_error:
@@ -94,7 +94,7 @@ verify_report_error:
 static int verify_nonce(ReportItem nonce) {
 	if (kPRE_NONCE == NULL) {
 		CryptoReturnCode crc = CryptoMsg_new(nonce->data, nonce->data_len, &kPRE_NONCE);
-		CRYPTO_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, crc, verify_nonce_error);
+		CRYPTO_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, crc, verify_nonce_error);
 		return 1;
 	}
 	if (memcmp(nonce, kPRE_NONCE, kPRE_NONCE->data_len) == 0) {
@@ -123,27 +123,27 @@ static int verify_sysci(ReportItem encrypted_sysci) {
 	CryptoMsg *pre_sysci_digest = NULL;
 
 	SysciReturnCode src = Sysci_decrypt(encrypted_sysci, &sysci);
-	SYSCI_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, verify_sysci_error);
+	SYSCI_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, src, verify_sysci_error);
 	TSS2_RC trc = TPM2_esys_context_init(&esys_ctx, &tcti_inner);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 	trc = TPM2_esys_pcr_extend(esys_ctx, sysci, &sysci_digest);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 	Sysci_free(sysci);
 	trc = TPM2_esys_context_teardown(esys_ctx, tcti_inner);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 
 	trc = TPM2_sys_context_init(&sys_ctx);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 	trc = TPM2_sys_nv_init(sys_ctx, INDEX_LCP_OWN);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 	trc = TPM2_sys_nv_write(sys_ctx, INDEX_LCP_OWN, sysci_digest);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 	trc = TPM2_sys_nv_read(sys_ctx, INDEX_LCP_OWN, &pre_sysci_digest);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 	trc = TPM2_sys_nv_teardown(sys_ctx, INDEX_LCP_OWN);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 	trc = TPM2_sys_context_teardown(sys_ctx);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, trc, verify_sysci_error);
+	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 
 	int verify_res = (memcmp(sysci_digest->data, pre_sysci_digest->data, sysci_digest->data_len) == 0);
 	CryptoMsg_free(sysci_digest);
@@ -158,18 +158,22 @@ verify_sysci_error:
 	return 0;
 }
 
-static void parse_msg_loop() {
+static void parse_proxy_p_msg_loop_pre() {
+	kLOG_FD = Log_open_file(kLOG_FILE_PATH);
+	Socket_udp_init(kPROXY_V_PORT, &kSOCK_FD);
+}
+
+static void parse_proxy_p_msg_loop() {
 	while (1) {
-		SocketMsg *sock_msg;
+		SocketMsg *sock_msg = NULL;
 		SocketReturnCode src = Socket_read_from_peer(kSOCK_FD, (SA *)&kPROXY_P_ADDR, &kPROXY_P_ADDR_LEN, &sock_msg);
-		SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, parse_msg_error);
+		SOCKET_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, src, parse_msg_error);
 		switch (sock_msg->type) {
 			case SOCKET_MT_SEND_REPORT:
 				{
 					Report *report = NULL;
 					ReportReturnCode rrc = Report_parse_from_json((char *)sock_msg->data, &report);
-					REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, rrc, parse_report_error);
-					SocketMsg_free(sock_msg);
+					REPORT_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, rrc, parse_report_error);
 
 					if (verify_report(&report) == 0) {
 						if (send_verify_response_to_proxy_p(report->nonce, VERIFY_FAILED) == 0)
@@ -196,19 +200,22 @@ parse_report_error:
 					break;
 				}
 			default:
-				Log_write_a_error_log(log_fd, "get error SocketMsg type");
+				Log_write_a_error_log(kLOG_FD, "Get error SocketMsg type.");
 				break;
 		}
-	}
 parse_msg_error:
-	exit(EXIT_FAILURE);
+		SocketMsg_free(sock_msg);
+	}
+}
+
+static void parse_proxy_p_msg_loop_post() {
+	Log_close_file(kLOG_FD);
 }
 
 int main(int argc, char *argv[]) {
-	log_fd = Log_open_file(kLOG_FILE_PATH);
-	Socket_udp_init(kPROXY_V_PORT, &kSOCK_FD);
-	parse_msg_loop();
-	Log_close_file(log_fd);
+	parse_proxy_p_msg_loop_pre();
+	parse_proxy_p_msg_loop();
+	parse_proxy_p_msg_loop_post();
 
 	return 0;
 }

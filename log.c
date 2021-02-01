@@ -18,7 +18,7 @@ static void Log_write_a_log(FILE *fd, const char *log_level, const char *format,
 	vfprintf(fd, format, args);
 	va_end(args);
 
-	fprintf(fd, "--[%s]--", ctime(&cur_time));
+	fprintf(fd, " --%s", ctime(&cur_time));
 	fflush(fd);
 }
 

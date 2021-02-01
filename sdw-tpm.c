@@ -13,11 +13,11 @@
 #include "log.h"
 
 static const char *kLOG_FILE_PATH = "./log/sdw-tpm.log";
-static FILE *log_fd = NULL;
+static FILE *kLOG_FD = NULL;
 
 static int check_sys_env() {
 	if (!file_exists(kPROXY_P_FILE_PATH)) {
-		Log_write_a_error_log(log_fd, "proxy-p file does't exit");
+		Log_write_a_error_log(kLOG_FD, "proxy-p file does't exit");
 		return 0;
 	}
 	return 1;
@@ -26,19 +26,19 @@ static int check_sys_env() {
 static int *proxy_p_start(pid_t *child_pid) {
 	int fd_write[2], fd_read[2];
 	if (pipe(fd_write) < 0 || pipe(fd_read) <0) {
-		Log_write_a_error_log(log_fd, "pipe error");
+		Log_write_a_error_log(kLOG_FD, "pipe error");
 		exit(EXIT_FAILURE);
 	}
 
 	pid_t pid;
 	if ((pid = fork()) < 0) {
-		Log_write_a_error_log(log_fd, "fork error");
+		Log_write_a_error_log(kLOG_FD, "fork error");
 		exit(EXIT_FAILURE);
 	} else if (pid > 0) {
 		close(fd_write[0]);
 		close(fd_read[1]);
 		*child_pid = pid;
-		Log_write_a_normal_log(log_fd, "proxy-p started");
+		Log_write_a_normal_log(kLOG_FD, "proxy-p started");
 	} else {
 		close(fd_write[1]);
 		close(fd_read[0]);
@@ -67,10 +67,10 @@ static void proxy_p_finish(pid_t child_pid, int *child_fds)
 	int child_exit_status;
 	waitpid(child_pid, &child_exit_status, 0);
 	if (child_exit_status == EXIT_FAILURE) {
-		Log_write_a_normal_log(log_fd, "proxy-p abnormally stop");
+		Log_write_a_normal_log(kLOG_FD, "proxy-p abnormally stop");
 		exit(EXIT_FAILURE);
 	}
-	Log_write_a_normal_log(log_fd, "proxy-p successfully stop");
+	Log_write_a_normal_log(kLOG_FD, "proxy-p successfully stop");
 }
 
 void test_crypto()
@@ -89,29 +89,35 @@ void test_crypto()
 	EVP_PKEY_assign_RSA(pkey, rsa);
 }
 
+static void proxy_p_loop_pre() {
+	kLOG_FD = Log_open_file(kLOG_FILE_PATH);
+	if (!check_sys_env())
+		exit(EXIT_FAILURE);
+}
+
 static void proxy_p_loop() {
 	pid_t child_pid;
 	int *coordination_fds = proxy_p_start(&child_pid);
 
-	CoordinationMsg *msg;
+	CoordinationMsg *msg = NULL;
 	while (1) {
 		CoordinationReturnCode crc = Coordination_read_from_peer(coordination_fds[1], &msg);
-		COORDINATION_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, crc, finish);
+		COORDINATION_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, crc, finish);
 		switch (msg->type) {
 			case COORDINATION_MT_GET_SYSCI:
 				{
 					Sysci *sysci = NULL;
 					char *json_sysci = NULL;
 					SysciReturnCode src = Sysci_new(&sysci);
-					SYSCI_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, get_sysci_error);
+					SYSCI_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, src, get_sysci_error);
 					src = Sysci_to_json(sysci, &json_sysci);
-					SYSCI_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, src, get_sysci_error);
+					SYSCI_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, src, get_sysci_error);
 
 					crc = Coordination_send_to_peer(coordination_fds[0],
 													COORDINATION_MT_SEND_SYSCI,
 													(uint8_t *)json_sysci,
 													strlen(json_sysci)+1);
-					COORDINATION_WRITE_LOG_AND_GOTO_IF_ERROR(log_fd, crc, get_sysci_error);
+					COORDINATION_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, crc, get_sysci_error);
 get_sysci_error:
 					if (json_sysci)  free(json_sysci);
 					Sysci_free(sysci);
@@ -121,20 +127,24 @@ get_sysci_error:
 			case COORDINATION_MT_VERIFY_FAILED:
 				goto finish;
 			default:
-				Log_write_a_error_log(log_fd, "get error coordination message type");
+				Log_write_a_error_log(kLOG_FD, "get error coordination message type");
 				break;
 		}
+		CoordinationMsg_free(msg);
 	}
 finish:
+	CoordinationMsg_free(msg);
 	proxy_p_finish(child_pid, coordination_fds);
 }
 
+static void proxy_p_loop_post() {
+	Log_close_file(kLOG_FD);
+}
+
 int main(int argc, char *argv[]) {
-	log_fd = Log_open_file(kLOG_FILE_PATH);
-	if (!check_sys_env())
-		exit(EXIT_FAILURE);
+	proxy_p_loop_pre();
 	proxy_p_loop();
-	Log_close_file(log_fd);
+	proxy_p_loop_post();
 
     return 0;
 }

@@ -59,8 +59,6 @@ SysciReturnCode Sysci_new(Sysci **new_sysci);
 
 void Sysci_free(Sysci *sysci);
 
-void Sysci_print(const Sysci *sysci);
-
 SysciReturnCode Sysci_encrypt(const Sysci *sysci, CryptoMsg **encrypted_sysci);
 
 SysciReturnCode Sysci_decrypt(const CryptoMsg *encrypted_sysci, Sysci **sysci);

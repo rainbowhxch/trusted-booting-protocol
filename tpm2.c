@@ -553,8 +553,8 @@ TSS2_RC TPM2_sys_context_init(TSS2_SYS_CONTEXT **sys_context)
     if ((*sys_context) == NULL)
         return TPM2_RC_BAD_CONTEXT;
 
-    rc = Tss2_Sys_Startup((*sys_context), TPM2_SU_CLEAR);
-    return rc;
+    Tss2_Sys_Startup((*sys_context), TPM2_SU_CLEAR);
+    return TSS2_RC_SUCCESS;
 }
 
 TSS2_RC TPM2_sys_context_teardown(TSS2_SYS_CONTEXT *sys_context)
@@ -631,7 +631,7 @@ TSS2_RC TPM2_sys_nv_write(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index, 
 
     TSS2L_SYS_AUTH_RESPONSE auth_resp = { 0, };
 
-    rc = TSS2_RETRY_EXP (Tss2_Sys_NV_Write(sys_ctx,
+    rc = TSS2_RETRY_EXP(Tss2_Sys_NV_Write(sys_ctx,
                                            nv_index,
                                            nv_index,
                                            &auth_cmd_null_pwd,
