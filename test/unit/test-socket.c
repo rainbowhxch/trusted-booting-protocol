@@ -26,11 +26,11 @@ static void test_Socket_unpack_data(void **state) {
 	SocketReturnCode src = SocketMsg_new(SOCKET_MT_GET_REPORT, NULL, 0, &msg);
 	assert_true(src == SOCKET_RC_SUCCESS);
 	SocketMsg *unpacked_msg;
-	src = Socket_unpack_data(msg, SocketMsg_total_length(msg)-1, &unpacked_msg);
+	src = Socket_unpack_data(msg, sizeof(SocketMsg)+msg->data_len-1, &unpacked_msg);
 	assert_true(src == SOCKET_RC_BAD_DATA);
-	src = Socket_unpack_data(msg, SocketMsg_total_length(msg)+1, &unpacked_msg);
+	src = Socket_unpack_data(msg, sizeof(SocketMsg)+msg->data_len+1, &unpacked_msg);
 	assert_true(src == SOCKET_RC_BAD_DATA);
-	src = Socket_unpack_data(msg, SocketMsg_total_length(msg), &unpacked_msg);
+	src = Socket_unpack_data(msg, sizeof(SocketMsg)+msg->data_len, &unpacked_msg);
 	assert_true(src == SOCKET_RC_SUCCESS);
 	SocketMsg_free(msg);
 	SocketMsg_free(unpacked_msg);

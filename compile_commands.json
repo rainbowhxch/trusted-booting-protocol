@@ -1,0 +1,134 @@
+[
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "sdw-tpm.c",
+   "-o",
+   "sdw-tpm.o"
+  ],
+  "file": "sdw-tpm.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "util.c",
+   "-o",
+   "util.o"
+  ],
+  "file": "util.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "crypto.c",
+   "-o",
+   "crypto.o"
+  ],
+  "file": "crypto.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "coordination.c",
+   "-o",
+   "coordination.o"
+  ],
+  "file": "coordination.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "report.c",
+   "-o",
+   "report.o"
+  ],
+  "file": "report.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "sysci.c",
+   "-o",
+   "sysci.o"
+  ],
+  "file": "sysci.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "log.c",
+   "-o",
+   "log.o"
+  ],
+  "file": "log.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "proxy-p.c",
+   "-o",
+   "proxy-p.o"
+  ],
+  "file": "proxy-p.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "socket.c",
+   "-o",
+   "socket.o"
+  ],
+  "file": "socket.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "verify-response.c",
+   "-o",
+   "verify-response.o"
+  ],
+  "file": "verify-response.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "proxy-v.c",
+   "-o",
+   "proxy-v.o"
+  ],
+  "file": "proxy-v.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code",
+  "arguments": [
+   "gcc",
+   "-c",
+   "tpm2.c",
+   "-o",
+   "tpm2.o"
+  ],
+  "file": "tpm2.c"
+ }
+]

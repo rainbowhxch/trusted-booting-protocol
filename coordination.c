@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-const static size_t COORDINATION_BUFFER_SIZE = 4096;
+const static size_t kCOORDINATION_BUFFER_SIZE = 4096;
 
 inline static size_t CoordinationMsg_total_length(const CoordinationMsg *msg) {
 	return sizeof(CoordinationMsg) + msg->data_len;
@@ -65,7 +65,7 @@ CoordinationReturnCode Coordination_send_to_peer(const int fd, const Coordinatio
 }
 
 CoordinationReturnCode Coordination_read_from_peer(const int fd, CoordinationMsg **msg) {
-	uint8_t buf[COORDINATION_BUFFER_SIZE];
-	ssize_t read_len = read(fd, buf, COORDINATION_BUFFER_SIZE);
+	uint8_t buf[kCOORDINATION_BUFFER_SIZE];
+	ssize_t read_len = read(fd, buf, kCOORDINATION_BUFFER_SIZE);
 	return Coordination_unpack_data(buf, read_len, msg);
 }

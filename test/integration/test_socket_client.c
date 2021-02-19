@@ -6,14 +6,14 @@
 #include <setjmp.h>
 #include <arpa/inet.h>
 #include <cmocka.h>
-#include <strings.h>
+#include <string.h>
 #include <sys/socket.h>
 
 /* A test case that does nothing and succeeds. */
 static void test_socket(void **state) {
     (void) state; /* unused */
 	int sockfd;
-	Socket_udp_init(&sockfd, 0);
+	Socket_udp_init(0, &sockfd);
 	struct sockaddr_in peer_addr;
 	bzero(&peer_addr, sizeof(peer_addr));
 	peer_addr.sin_port = htons(10006);
@@ -23,7 +23,7 @@ static void test_socket(void **state) {
 	SocketMsg *msg;
 
 	char a[2] = "1";
-	Socket_send_to_peer(sockfd, (SA *)&peer_addr, peer_addr_len, SOCKET_GET_REPORT, a, 1);
+	Socket_send_to_peer(sockfd, (SA *)&peer_addr, peer_addr_len, SOCKET_MT_GET_REPORT, (uint8_t *)a, 1);
 	Socket_read_from_peer(sockfd, (SA *)&peer_addr, &peer_addr_len, &msg);
 	assert_true(memcmp(msg->data, a, 1) == 0);
 }

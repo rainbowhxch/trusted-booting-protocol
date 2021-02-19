@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-const static size_t SOCKET_BUFFER_SIZE = 4096;
+const static size_t kSOCKET_BUFFER_SIZE = 4096;
 
 inline static size_t SocketMsg_total_length(const SocketMsg *msg) {
 	return sizeof(SocketMsg) + msg->data_len;
@@ -89,7 +89,7 @@ SocketReturnCode Socket_send_to_peer(int sockfd, SA *peer_addr, socklen_t peer_a
 }
 
 SocketReturnCode Socket_read_from_peer(int sockfd, SA *peer_addr, socklen_t *peer_addr_len, SocketMsg **msg) {
-	uint8_t buf[SOCKET_BUFFER_SIZE];
-	ssize_t read_len = recvfrom(sockfd, buf, SOCKET_BUFFER_SIZE, 0, peer_addr, peer_addr_len);
+	uint8_t buf[kSOCKET_BUFFER_SIZE];
+	ssize_t read_len = recvfrom(sockfd, buf, kSOCKET_BUFFER_SIZE, 0, peer_addr, peer_addr_len);
 	return Socket_unpack_data(buf, read_len, msg);
 }

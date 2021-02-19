@@ -18,7 +18,7 @@
 			return SYSCI_RC_SUCCESS; \
 	}
 
-const static char *SYSCI_EFI_FILE_PATH = "/boot/EFI/arch/grubx64.efi";
+const static char *kSYSCI_EFI_FILE_PATH = "/boot/EFI/arch/grubx64.efi";
 
 static SysciReturnCode Sysci_empty_new(Sysci **new_empty_sysci) {
 	(*new_empty_sysci) = malloc(sizeof(Sysci));
@@ -48,7 +48,7 @@ SysciReturnCode Sysci_new(Sysci **new_sysci) {
 	CRYPTO_GOTO_IF_ERROR(crc);
 	crc = CryptoMsg_new((CryptoMsgData)sys_info.release, strlen(sys_info.release), &(*new_sysci)->system_release);
 	CRYPTO_GOTO_IF_ERROR(crc);
-	crc = Crypto_digest_file(SYSCI_EFI_FILE_PATH, &(*new_sysci)->efi_sha256);
+	crc = Crypto_digest_file(kSYSCI_EFI_FILE_PATH, &(*new_sysci)->efi_sha256);
 	CRYPTO_GOTO_IF_ERROR(crc);
 	crc = Crypto_digest_file(kPROXY_P_FILE_PATH, &(*new_sysci)->proxy_p_sha256);
 	CRYPTO_GOTO_IF_ERROR(crc);

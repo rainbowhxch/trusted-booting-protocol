@@ -19,11 +19,11 @@ static void test_Coordination_unpack_data(void **state) {
 	CoordinationReturnCode crc = CoordinationMsg_new(COORDINATION_MT_GET_SYSCI, NULL, 0, &msg);
 	assert_true(crc == COORDINATION_RC_SUCCESS);
 	CoordinationMsg *unpacked_msg;
-	crc = Coordination_unpack_data(msg, CoordinationMsg_total_length(msg)-1, &unpacked_msg);
+	crc = Coordination_unpack_data(msg, sizeof(CoordinationMsg)+msg->data_len-1, &unpacked_msg);
 	assert_true(crc == COORDINATION_RC_BAD_DATA);
-	crc = Coordination_unpack_data(msg, CoordinationMsg_total_length(msg)+1, &unpacked_msg);
+	crc = Coordination_unpack_data(msg, sizeof(CoordinationMsg)+msg->data_len+1, &unpacked_msg);
 	assert_true(crc == COORDINATION_RC_BAD_DATA);
-	crc = Coordination_unpack_data(msg, CoordinationMsg_total_length(msg), &unpacked_msg);
+	crc = Coordination_unpack_data(msg, sizeof(CoordinationMsg)+msg->data_len, &unpacked_msg);
 	assert_true(crc == COORDINATION_RC_SUCCESS);
 	CoordinationMsg_free(msg);
 	CoordinationMsg_free(unpacked_msg);

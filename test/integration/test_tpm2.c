@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <setjmp.h>
 #include <cmocka.h>
+#include <string.h>
+#include <tss2/tss2_common.h>
 
 void test_sys()
 {
@@ -12,7 +14,8 @@ void test_sys()
     TSS2_TCTI_CONTEXT *tcti_inner;
     TPM2_esys_context_init(&ctx, &tcti_inner);
 
-    Sysci *sysci = Sysci_new();
+    Sysci *sysci;
+    Sysci_new(&sysci);
     CryptoMsg *pcr_digest;
     TPM2_esys_pcr_extend(ctx, sysci, &pcr_digest);
 
@@ -22,16 +25,13 @@ void test_sys()
     TSS2_SYS_CONTEXT *sys_context;
     TPM2_sys_context_init(&sys_context);
     rc = TPM2_sys_nv_init(sys_context, INDEX_LCP_OWN);
-    goto_if_error(rc, "setup_nv for INDEX_LCP_OWN");
 
     TPM2_sys_nv_write(sys_context, INDEX_LCP_OWN, pcr_digest);
     CryptoMsg *read_data;
     TPM2_sys_nv_read(sys_context, INDEX_LCP_OWN, &read_data);
-    assert_true((memcmp(read_data->data, pcr_digest->data, read_data->length) == 0));
+    assert_true((memcmp(read_data->data, pcr_digest->data, read_data->data_len) == 0));
 
     rc_teardown = TPM2_sys_nv_teardown (sys_context, INDEX_LCP_OWN);
-    goto_if_error (rc, "INDEX_LCP_OWN test");
-    goto_if_error (rc_teardown, "teardown_nv for INDEX_LCP_OWN");
     TPM2_sys_context_teardown(sys_context);
 }
 
@@ -40,14 +40,11 @@ void test_esys()
     ESYS_CONTEXT *ctx;
     TSS2_TCTI_CONTEXT *tcti_inner;
     TPM2_esys_context_init(&ctx, &tcti_inner);
-    Sysci *sysci = Sysci_new();
+    Sysci *sysci;
+    Sysci_new(&sysci);
     CryptoMsg *pcr_digest;
-    TPM2_esys_pcr_extend(ctx, sysci, &pcr_digest);
-    ESYS_TR nvHandle;
-    TPM2_esys_nv_write(ctx, &nvHandle, pcr_digest);
-    CryptoMsg *data;
-    TPM2_esys_nv_read(ctx, nvHandle, &data);
-    assert_true((memcmp(data->data, pcr_digest->data, data->length) == 0));
+    TSS2_RC rc = TPM2_esys_pcr_extend(ctx, sysci, &pcr_digest);
+    assert_true(rc == TSS2_RC_SUCCESS);
     TPM2_esys_context_teardown(ctx, tcti_inner);
 }
 
