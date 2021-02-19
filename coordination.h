@@ -37,8 +37,10 @@ typedef enum {
 
 typedef size_t CoordinationMsgDataLength;
 typedef uint8_t CoordinationMsgData[];
+typedef uint32_t CoordinationMsgMagicNumber;
 
 typedef struct {
+    CoordinationMsgMagicNumber magic_number;
 	CoordinationMsgType type;
 	CoordinationMsgDataLength data_len;
 	CoordinationMsgData data;

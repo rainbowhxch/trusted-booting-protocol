@@ -48,6 +48,7 @@ typedef struct {
 	SysciItem hardware_id;
 	SysciItem system_release;
 	SysciItem efi_sha256;
+    SysciItem sdw_tpm_sha256;
 	SysciItem proxy_p_sha256;
 } Sysci;
 

@@ -6,10 +6,16 @@
 #include <string.h>
 #include <stdlib.h>
 
-const static size_t SOCKET_BUFFER_SIZE = 4096;
+const static size_t kSOCKET_BUFFER_SIZE = 4096;
+const static SocketMagicNumber kSOCKET_MAGIC_NUMBER = 0x13212138;
 
 inline static size_t SocketMsg_total_length(const SocketMsg *msg) {
 	return sizeof(SocketMsg) + msg->data_len;
+}
+
+inline static uint8_t *SocketMsg_get_magic_number_from_data(uint8_t *data, SocketMagicNumber *magic_number) {
+	(*magic_number) = *((SocketMagicNumber *)data);
+	return data += sizeof(SocketMagicNumber);
 }
 
 inline static uint8_t *SocketMsg_get_type_from_data(uint8_t *data, SocketMsgType *type) {
@@ -26,6 +32,7 @@ SocketReturnCode SocketMsg_new(const SocketMsgType type, const SocketData data, 
 	(*msg) = malloc(sizeof(SocketMsg)+data_len);
 	if ((*msg) == NULL)
 		return SOCKET_RC_BAD_ALLOCATION;
+    (*msg)->magic_number = kSOCKET_MAGIC_NUMBER;
 	(*msg)->type = type;
 	(*msg)->data_len = data_len;
 	memcpy((*msg)->data, data, (*msg)->data_len);
@@ -66,6 +73,10 @@ SocketReturnCode Socket_unpack_data(void *buf, const ssize_t buf_len, SocketMsg 
 		return SOCKET_RC_BAD_DATA;
 
 	uint8_t *off = buf;
+    SocketMagicNumber magic_number;
+    off = SocketMsg_get_magic_number_from_data(off, &magic_number);
+    if (magic_number != kSOCKET_MAGIC_NUMBER)
+        return SOCKET_RC_BAD_DATA;
 	SocketMsgType type;
 	off = SocketMsg_get_type_from_data(off, &type);
 	SocketDataLength data_len;
@@ -89,7 +100,7 @@ SocketReturnCode Socket_send_to_peer(int sockfd, SA *peer_addr, socklen_t peer_a
 }
 
 SocketReturnCode Socket_read_from_peer(int sockfd, SA *peer_addr, socklen_t *peer_addr_len, SocketMsg **msg) {
-	uint8_t buf[SOCKET_BUFFER_SIZE];
-	ssize_t read_len = recvfrom(sockfd, buf, SOCKET_BUFFER_SIZE, 0, peer_addr, peer_addr_len);
+	uint8_t buf[kSOCKET_BUFFER_SIZE];
+	ssize_t read_len = recvfrom(sockfd, buf, kSOCKET_BUFFER_SIZE, 0, peer_addr, peer_addr_len);
 	return Socket_unpack_data(buf, read_len, msg);
 }

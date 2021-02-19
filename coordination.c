@@ -4,10 +4,16 @@
 #include <stdio.h>
 #include <string.h>
 
-const static size_t COORDINATION_BUFFER_SIZE = 4096;
+const static size_t kCOORDINATION_BUFFER_SIZE = 4096;
+const static uint32_t kCOORDINATION_MAGIC_NUMBER = 0x12312138;
 
 inline static size_t CoordinationMsg_total_length(const CoordinationMsg *msg) {
 	return sizeof(CoordinationMsg) + msg->data_len;
+}
+
+inline static uint8_t *CoordinationMsg_get_magic_number_from_data(uint8_t *data, CoordinationMsgMagicNumber *magic_number) {
+	(*magic_number) = *((CoordinationMsgMagicNumber *)data);
+	return data += sizeof(CoordinationMsgMagicNumber);
 }
 
 inline static uint8_t *CoordinationMsg_get_type_from_data(uint8_t *data, CoordinationMsgType *type) {
@@ -24,6 +30,7 @@ CoordinationReturnCode CoordinationMsg_new(const CoordinationMsgType type, const
 	*msg = malloc(sizeof(CoordinationMsg) + data_len);
 	if ((*msg) == NULL)
 		return COORDINATION_RC_BAD_ALLOCATION;
+    (*msg)->magic_number = kCOORDINATION_MAGIC_NUMBER;
 	(*msg)->type = type;
 	(*msg)->data_len = data_len;
 	memcpy((*msg)->data, data, (*msg)->data_len);
@@ -42,6 +49,10 @@ CoordinationReturnCode Coordination_unpack_data(void *buf, const ssize_t buf_len
 		return COORDINATION_RC_BAD_DATA;
 
 	uint8_t *off = buf;
+    CoordinationMsgMagicNumber magic_number;
+    off = CoordinationMsg_get_magic_number_from_data(off, &magic_number);
+    if (magic_number != kCOORDINATION_MAGIC_NUMBER)
+        return COORDINATION_RC_BAD_DATA;
 	CoordinationMsgType type;
 	off = CoordinationMsg_get_type_from_data(off, &type);
 	CoordinationMsgDataLength data_len;
@@ -65,7 +76,7 @@ CoordinationReturnCode Coordination_send_to_peer(const int fd, const Coordinatio
 }
 
 CoordinationReturnCode Coordination_read_from_peer(const int fd, CoordinationMsg **msg) {
-	uint8_t buf[COORDINATION_BUFFER_SIZE];
-	ssize_t read_len = read(fd, buf, COORDINATION_BUFFER_SIZE);
+	uint8_t buf[kCOORDINATION_BUFFER_SIZE];
+	ssize_t read_len = read(fd, buf, kCOORDINATION_BUFFER_SIZE);
 	return Coordination_unpack_data(buf, read_len, msg);
 }

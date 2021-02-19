@@ -16,7 +16,7 @@
 			return REPORT_RC_SUCCESS; \
 	}
 
-const static int REPORT_NONCE_LENGTH = 128;
+const static int kREPORT_NONCE_LENGTH = 128;
 
 static ReportReturnCode Report_empty_new(Report **report) {
 	(*report) = malloc(sizeof(Report));
@@ -49,7 +49,7 @@ ReportReturnCode Report_new(const Sysci *sysci, const char *id, Report **report)
 	crc = CryptoMsg_new(timestamp_str, sizeof(time_t), &(*report)->timestamp);
 	CRYPTO_GOTO_IF_ERROR(crc);
 
-	crc = CryptoMsg_new_with_length(REPORT_NONCE_LENGTH, &(*report)->nonce);
+	crc = CryptoMsg_new_with_length(kREPORT_NONCE_LENGTH, &(*report)->nonce);
 	CRYPTO_GOTO_IF_ERROR(crc);
 	int r = RAND_bytes((*report)->nonce->data, (*report)->nonce->data_len);
 	if (!r) {

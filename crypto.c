@@ -28,7 +28,7 @@
 		return rc; \
 	}
 
-const static int CRYPTO_PAGE_SIZE = 4096;
+const static int kCRYPTO_PAGE_SIZE = 4096;
 
 CryptoReturnCode CryptoMsg_new_with_length(const CryptoMsgDataLength data_len, CryptoMsg **new_msg) {
 	(*new_msg) = malloc(sizeof(CryptoMsg));
@@ -119,9 +119,9 @@ CryptoReturnCode Crypto_digest_file(const char *file_path, CryptoMsg **digest) {
 	if (!fd)
 		CRYPTO_EVP_MD_CTX_FREE_AND_RETURN(mdctx, CRYPTO_RC_OPEN_FILE_FAILED);
 
-	char one_page[CRYPTO_PAGE_SIZE];
+	char one_page[kCRYPTO_PAGE_SIZE];
 	int readed_bin_cnt = 0;
-	while ((readed_bin_cnt = fread(one_page, 1, CRYPTO_PAGE_SIZE, fd))) {
+	while ((readed_bin_cnt = fread(one_page, 1, kCRYPTO_PAGE_SIZE, fd))) {
 		if(1 != EVP_DigestUpdate(mdctx, one_page, readed_bin_cnt))
 			CRYPTO_EVP_MD_CTX_FREE_AND_RETURN(mdctx, CRYPTO_RC_EVP_FAILED);
 	}

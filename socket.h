@@ -42,8 +42,10 @@ typedef enum {
 
 typedef size_t SocketDataLength;
 typedef uint8_t SocketData[];
+typedef uint32_t SocketMagicNumber;
 
 typedef struct {
+    SocketMagicNumber magic_number;
 	SocketMsgType type;
 	SocketDataLength data_len;
 	SocketData data;
