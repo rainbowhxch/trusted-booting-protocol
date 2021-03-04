@@ -1,4 +1,4 @@
-#include "coordination.h"
+#include "../include/coordination.h"
 
 #include <unistd.h>
 #include <stdio.h>

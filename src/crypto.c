@@ -1,4 +1,4 @@
-#include "crypto.h"
+#include "../include/crypto.h"
 
 #include <string.h>
 #include <openssl/pem.h>

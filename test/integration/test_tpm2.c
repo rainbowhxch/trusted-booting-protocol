@@ -1,4 +1,4 @@
-#include "../../tpm2.h"
+#include "../../include/tpm2.h"
 
 #include <stdarg.h>
 #include <stdio.h>

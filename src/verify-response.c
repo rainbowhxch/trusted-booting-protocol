@@ -1,4 +1,4 @@
-#include "verify-response.h"
+#include "../include/verify-response.h"
 
 #include <cjson/cJSON.h>
 #include <stdlib.h>

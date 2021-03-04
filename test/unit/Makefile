@@ -1,5 +1,5 @@
 C_SOURCES = $(wildcard *.c)
-C_HEADERS = $(wildcard ../../*.h)
+C_HEADERS = $(wildcard ../../include/*.h)
 
 OBJ = ${C_SOURCES:.c=.o}
 EXE = test-socket test-coordination
@@ -12,10 +12,10 @@ run:
 	./test-socket
 	./test-coordination
 
-test-socket: test-socket.o ../../socket.o
+test-socket: test-socket.o $(addprefix ../../src/, socket.o)
 	$(CC) $^ -o $@ -lcmocka
 
-test-coordination: test-coordination.o ../../coordination.o
+test-coordination: test-coordination.o $(addprefix ../../src/, coordination.o)
 	$(CC) $^ -o $@ -lcmocka
 
 %.o: %.c $(C_HEADERS)

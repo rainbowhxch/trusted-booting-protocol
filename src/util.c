@@ -1,4 +1,4 @@
-#include "util.h"
+#include "../include/util.h"
 
 #include <stdlib.h>
 #include <unistd.h>

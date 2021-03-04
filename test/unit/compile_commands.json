@@ -1,0 +1,46 @@
+[
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/unit",
+  "arguments": [
+   "gcc",
+   "-c",
+   "test-socket.c",
+   "-o",
+   "test-socket.o"
+  ],
+  "file": "test-socket.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/unit",
+  "arguments": [
+   "gcc",
+   "-c",
+   "../../src/socket.c",
+   "-o",
+   "../../src/socket.o"
+  ],
+  "file": "../../src/socket.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/unit",
+  "arguments": [
+   "gcc",
+   "-c",
+   "test-coordination.c",
+   "-o",
+   "test-coordination.o"
+  ],
+  "file": "test-coordination.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/unit",
+  "arguments": [
+   "gcc",
+   "-c",
+   "../../src/coordination.c",
+   "-o",
+   "../../src/coordination.o"
+  ],
+  "file": "../../src/coordination.c"
+ }
+]

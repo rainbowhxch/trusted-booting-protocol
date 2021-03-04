@@ -4,131 +4,131 @@
   "arguments": [
    "gcc",
    "-c",
-   "sdw-tpm.c",
+   "src/sdw-tpm.c",
    "-o",
-   "sdw-tpm.o"
+   "src/sdw-tpm.o"
   ],
-  "file": "sdw-tpm.c"
+  "file": "src/sdw-tpm.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "util.c",
+   "src/util.c",
    "-o",
-   "util.o"
+   "src/util.o"
   ],
-  "file": "util.c"
+  "file": "src/util.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "crypto.c",
+   "src/crypto.c",
    "-o",
-   "crypto.o"
+   "src/crypto.o"
   ],
-  "file": "crypto.c"
+  "file": "src/crypto.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "coordination.c",
+   "src/coordination.c",
    "-o",
-   "coordination.o"
+   "src/coordination.o"
   ],
-  "file": "coordination.c"
+  "file": "src/coordination.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "report.c",
+   "src/report.c",
    "-o",
-   "report.o"
+   "src/report.o"
   ],
-  "file": "report.c"
+  "file": "src/report.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "sysci.c",
+   "src/sysci.c",
    "-o",
-   "sysci.o"
+   "src/sysci.o"
   ],
-  "file": "sysci.c"
+  "file": "src/sysci.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "log.c",
+   "src/log.c",
    "-o",
-   "log.o"
+   "src/log.o"
   ],
-  "file": "log.c"
+  "file": "src/log.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "proxy-p.c",
+   "src/proxy-p.c",
    "-o",
-   "proxy-p.o"
+   "src/proxy-p.o"
   ],
-  "file": "proxy-p.c"
+  "file": "src/proxy-p.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "socket.c",
+   "src/socket.c",
    "-o",
-   "socket.o"
+   "src/socket.o"
   ],
-  "file": "socket.c"
+  "file": "src/socket.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "verify-response.c",
+   "src/verify-response.c",
    "-o",
-   "verify-response.o"
+   "src/verify-response.o"
   ],
-  "file": "verify-response.c"
+  "file": "src/verify-response.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "proxy-v.c",
+   "src/proxy-v.c",
    "-o",
-   "proxy-v.o"
+   "src/proxy-v.o"
   ],
-  "file": "proxy-v.c"
+  "file": "src/proxy-v.c"
  },
  {
   "directory": "/home/ch/Documents/TPM/code",
   "arguments": [
    "gcc",
    "-c",
-   "tpm2.c",
+   "src/tpm2.c",
    "-o",
-   "tpm2.o"
+   "src/tpm2.o"
   ],
-  "file": "tpm2.c"
+  "file": "src/tpm2.c"
  }
 ]

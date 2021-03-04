@@ -4,14 +4,14 @@
 #include <string.h>
 #include <tss2/tss2_common.h>
 
-#include "crypto.h"
-#include "log.h"
-#include "sysci.h"
-#include "verify-response.h"
-#include "socket.h"
-#include "report.h"
-#include "tpm2.h"
-#include "util.h"
+#include "../include/crypto.h"
+#include "../include/log.h"
+#include "../include/sysci.h"
+#include "../include/verify-response.h"
+#include "../include/socket.h"
+#include "../include/report.h"
+#include "../include/tpm2.h"
+#include "../include/util.h"
 
 static const uint16_t kPROXY_V_PORT = 10006;
 static const char *kLOG_FILE_PATH = "./log/proxy-v.log";

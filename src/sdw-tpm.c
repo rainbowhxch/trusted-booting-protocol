@@ -6,11 +6,11 @@
 #include <openssl/rsa.h>
 #include <sys/wait.h>
 
-#include "util.h"
-#include "report.h"
-#include "coordination.h"
-#include "sysci.h"
-#include "log.h"
+#include "../include/util.h"
+#include "../include/report.h"
+#include "../include/coordination.h"
+#include "../include/sysci.h"
+#include "../include/log.h"
 
 static const char *kLOG_FILE_PATH = "./log/sdw-tpm.log";
 static FILE *kLOG_FD = NULL;

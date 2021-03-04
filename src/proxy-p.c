@@ -4,13 +4,13 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "coordination.h"
-#include "crypto.h"
-#include "verify-response.h"
-#include "socket.h"
-#include "sysci.h"
-#include "report.h"
-#include "log.h"
+#include "../include/coordination.h"
+#include "../include/crypto.h"
+#include "../include/verify-response.h"
+#include "../include/socket.h"
+#include "../include/sysci.h"
+#include "../include/report.h"
+#include "../include/log.h"
 
 static const char *kLOG_FILE_PATH = "./log./proxy-p.log";
 static const char *kPROXY_V_IP = "127.0.0.1";

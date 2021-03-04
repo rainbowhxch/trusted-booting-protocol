@@ -1,4 +1,4 @@
-#include "sysci.h"
+#include "../include/sysci.h"
 
 #include <sys/utsname.h>
 #include <cjson/cJSON.h>

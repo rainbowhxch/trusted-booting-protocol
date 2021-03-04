@@ -1,4 +1,4 @@
-#include "tpm2.h"
+#include "../include/tpm2.h"
 
 #include <string.h>
 #include <tss2/tss2_sys.h>

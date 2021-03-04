@@ -1,0 +1,90 @@
+[
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/integration",
+  "arguments": [
+   "gcc",
+   "-c",
+   "test_socket_client.c",
+   "-o",
+   "test_socket_client.o"
+  ],
+  "file": "test_socket_client.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/integration",
+  "arguments": [
+   "gcc",
+   "-c",
+   "../../src/socket.c",
+   "-o",
+   "../../src/socket.o"
+  ],
+  "file": "../../src/socket.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/integration",
+  "arguments": [
+   "gcc",
+   "-c",
+   "test_socket_server.c",
+   "-o",
+   "test_socket_server.o"
+  ],
+  "file": "test_socket_server.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/integration",
+  "arguments": [
+   "gcc",
+   "-c",
+   "test_tpm2.c",
+   "-o",
+   "test_tpm2.o"
+  ],
+  "file": "test_tpm2.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/integration",
+  "arguments": [
+   "gcc",
+   "-c",
+   "../../src/tpm2.c",
+   "-o",
+   "../../src/tpm2.o"
+  ],
+  "file": "../../src/tpm2.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/integration",
+  "arguments": [
+   "gcc",
+   "-c",
+   "../../src/util.c",
+   "-o",
+   "../../src/util.o"
+  ],
+  "file": "../../src/util.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/integration",
+  "arguments": [
+   "gcc",
+   "-c",
+   "../../src/sysci.c",
+   "-o",
+   "../../src/sysci.o"
+  ],
+  "file": "../../src/sysci.c"
+ },
+ {
+  "directory": "/home/ch/Documents/TPM/code/test/integration",
+  "arguments": [
+   "gcc",
+   "-c",
+   "../../src/crypto.c",
+   "-o",
+   "../../src/crypto.o"
+  ],
+  "file": "../../src/crypto.c"
+ }
+]
