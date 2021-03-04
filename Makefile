@@ -34,5 +34,6 @@ log:
 clean:
 	rm -rf $(OBJ) $(EXE)
 	rm -rf ./log/*
+	rm -rf log
 	make -C ./test/unit/ clean
 	make -C ./test/integration/ clean

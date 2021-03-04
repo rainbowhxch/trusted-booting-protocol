@@ -12,7 +12,7 @@
 #include "../include/report.h"
 #include "../include/log.h"
 
-static const char *kLOG_FILE_PATH = "./log./proxy-p.log";
+static const char *kLOG_FILE_PATH = "./log/proxy-p.log";
 static const char *kPROXY_V_IP = "127.0.0.1";
 static const uint16_t kPROXY_V_PORT = 10006;
 static const uint16_t kPROXY_P_PORT = 0;
