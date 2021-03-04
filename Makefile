@@ -6,7 +6,7 @@ EXE = sdw-tpm proxy-p proxy-v
 
 CC = gcc
 
-all: $(EXE)
+all: $(EXE) log
 
 test: $(OBJ)
 	make -C ./test/unit/ all run
@@ -26,6 +26,9 @@ sdw-tpm: $(addprefix ./src/, sdw-tpm.o util.o crypto.o coordination.o report.o \
 
 %.o: %.c $(C_HEADERS)
 	$(CC) -c $< -o $@ $(C_FLAGS)
+
+log:
+	mkdir log
 
 .PHONY: clean all test
 clean:

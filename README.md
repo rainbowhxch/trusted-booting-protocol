@@ -18,11 +18,19 @@ To Build:
 make
 ```
 
-To Run. Running the TPM Simulator, then:
+To Run. Running the TPM Simulator, then open two terminals, each line of the following commands runs to a terminal:
+
 ```bash
 ./proxy-v
+```
+
+and
+
+```bash
 ./sdw-tpm
 ```
+
+You will get some log files in the `log` directory, check them out.
 
 ## Credit
 
