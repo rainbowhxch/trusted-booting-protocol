@@ -9,12 +9,12 @@ CC = gcc
 all: $(EXE)
 
 test: $(OBJ)
-	make -C ./test/unit/ run
-	make -C ./test/integration/ run
+	make -C ./test/unit/ all run
+	make -C ./test/integration/ all run
 
 proxy-v: $(addprefix ./src/, proxy-v.o socket.o crypto.o sysci.o report.o \
 			tpm2.o log.o verify-response.o)
-	$(CC) $^ -o $@ -lcrypto -lcjson -ltss2-esys -ltss2-sys -ltss2-tcti-mssim
+	$(CC) $^ -o $@ -lcrypto -lcjson -ltss2-esys -ltss2-sys -ltss2-tcti-mssim -ltss2-tcti-swtpm
 
 proxy-p: $(addprefix ./src/, proxy-p.o coordination.o socket.o crypto.o \
 			sysci.o report.o log.o verify-response.o)
@@ -31,3 +31,5 @@ sdw-tpm: $(addprefix ./src/, sdw-tpm.o util.o crypto.o coordination.o report.o \
 clean:
 	rm -rf $(OBJ) $(EXE)
 	rm -rf ./log/*
+	make -C ./test/unit/ clean
+	make -C ./test/integration/ clean

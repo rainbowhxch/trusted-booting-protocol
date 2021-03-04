@@ -132,23 +132,25 @@ static int verify_sysci(ReportItem encrypted_sysci) {
 	trc = TPM2_esys_context_teardown(esys_ctx, tcti_inner);
 	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 
-	trc = TPM2_sys_context_init(&sys_ctx);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
-	trc = TPM2_sys_nv_init(sys_ctx, INDEX_LCP_OWN);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
-	trc = TPM2_sys_nv_write(sys_ctx, INDEX_LCP_OWN, sysci_digest);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
-	trc = TPM2_sys_nv_read(sys_ctx, INDEX_LCP_OWN, &pre_sysci_digest);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
-	trc = TPM2_sys_nv_teardown(sys_ctx, INDEX_LCP_OWN);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
-	trc = TPM2_sys_context_teardown(sys_ctx);
-	TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
+    trc = TPM2_sys_context_init(&sys_ctx);
+    TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
+    trc = TPM2_sys_nv_init(sys_ctx, INDEX_LCP_OWN);
+    TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
+    trc = TPM2_sys_nv_write(sys_ctx, INDEX_LCP_OWN, sysci_digest);
+    TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, tpm2_sys_write_read_error);
+    trc = TPM2_sys_nv_read(sys_ctx, INDEX_LCP_OWN, &pre_sysci_digest);
+    TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, tpm2_sys_write_read_error);
+    trc = TPM2_sys_nv_teardown(sys_ctx, INDEX_LCP_OWN);
+    TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
+    trc = TPM2_sys_context_teardown(sys_ctx);
+    TPM2_WRITE_LOG_AND_GOTO_IF_ERROR(kLOG_FD, trc, verify_sysci_error);
 
-	int verify_res = (memcmp(sysci_digest->data, pre_sysci_digest->data, sysci_digest->data_len) == 0);
+    int verify_res = (memcmp(sysci_digest->data, pre_sysci_digest->data, sysci_digest->data_len) == 0);
 	CryptoMsg_free(sysci_digest);
 	CryptoMsg_free(pre_sysci_digest);
 	return verify_res;
+tpm2_sys_write_read_error:
+    trc = TPM2_sys_nv_teardown(sys_ctx, INDEX_LCP_OWN);
 verify_sysci_error:
 	Sysci_free(sysci);
 	CryptoMsg_free(sysci_digest);

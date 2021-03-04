@@ -4,6 +4,7 @@
 #include <tss2/tss2_sys.h>
 #include <tss2/tss2_tcti_mssim.h>
 #include <tss2/tss2_tpm2_types.h>
+#include <tss2/tss2_tcti_swtpm.h>
 
 TSS2_TCTI_CONTEXT_PROXY *tcti_proxy_cast (TSS2_TCTI_CONTEXT *ctx)
 {
@@ -133,11 +134,42 @@ TSS2_TCTI_CONTEXT *tcti_socket_init(char const *host, uint16_t port)
     return tcti_ctx;
 }
 
+TSS2_TCTI_CONTEXT *
+tcti_swtpm_init(char const *host, uint16_t port)
+{
+    size_t size;
+    TSS2_RC rc;
+    TSS2_TCTI_CONTEXT *tcti_ctx;
+    char conf_str[TCTI_SWTPM_CONF_MAX] = { 0 };
+
+    snprintf(conf_str, TCTI_SWTPM_CONF_MAX, "host=%s,port=%" PRIu16, host, port);
+    rc = Tss2_Tcti_Swtpm_Init(NULL, &size, conf_str);
+    if (rc != TSS2_RC_SUCCESS) {
+        fprintf(stderr, "Faled to get allocation size for tcti context: "
+                "0x%x\n", rc);
+        return NULL;
+    }
+    tcti_ctx = (TSS2_TCTI_CONTEXT *) calloc(1, size);
+    if (tcti_ctx == NULL) {
+        fprintf(stderr, "Allocation for tcti context failed\n");
+        return NULL;
+    }
+    rc = Tss2_Tcti_Swtpm_Init(tcti_ctx, &size, conf_str);
+    if (rc != TSS2_RC_SUCCESS) {
+        fprintf(stderr, "Failed to initialize tcti context: 0x%x\n", rc);
+        free(tcti_ctx);
+        return NULL;
+    }
+    return tcti_ctx;
+}
+
 TSS2_TCTI_CONTEXT *tcti_init_from_opts(test_opts_t * options)
 {
     switch (options->tcti_type) {
     case SOCKET_TCTI:
         return tcti_socket_init(options->socket_address, options->socket_port);
+    case SWTPM_TCTI:
+        return tcti_swtpm_init(options->socket_address, options->socket_port);
     default:
         return NULL;
     }
@@ -400,7 +432,19 @@ TSS2_RC TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_di
     memcpy(digests.digests[0].digest.sha256, sysci->hardware_id->data, sysci->hardware_id->data_len);
     memcpy(digests.digests[1].digest.sha256, sysci->system_release->data, sysci->system_release->data_len);
     memcpy(digests.digests[2].digest.sha256, sysci->efi_sha256->data, sysci->efi_sha256->data_len);
-    memcpy(digests.digests[3].digest.sha256, sysci->proxy_p_sha256->data, sysci->proxy_p_sha256->data_len);
+    memcpy(digests.digests[3].digest.sha256, sysci->sdw_tpm_sha256->data, sysci->sdw_tpm_sha256->data_len);
+    TPML_DIGEST_VALUES remained_digests
+        = {
+        .count = 1,
+        .digests = {
+            {
+                .hashAlg = TPM2_ALG_SHA256,
+                .digest = {
+                    .sha256 = {0}
+                }
+            },
+        }};
+    memcpy(remained_digests.digests[0].digest.sha256, sysci->proxy_p_sha256->data, sysci->proxy_p_sha256->data_len);
 
     rc = Esys_PCR_Extend(
         ctx,
@@ -409,6 +453,15 @@ TSS2_RC TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci, CryptoMsg **pcr_di
         ESYS_TR_NONE,
         ESYS_TR_NONE,
         &digests
+        );
+    TPM2_RETURN_IF_ERROR(rc);
+    rc = Esys_PCR_Extend(
+        ctx,
+        pcrHandle_handle,
+        ESYS_TR_PASSWORD,
+        ESYS_TR_NONE,
+        ESYS_TR_NONE,
+        &remained_digests
         );
     TPM2_RETURN_IF_ERROR(rc);
 

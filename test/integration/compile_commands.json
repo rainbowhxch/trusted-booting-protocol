@@ -37,17 +37,6 @@
   "arguments": [
    "gcc",
    "-c",
-   "test_tpm2.c",
-   "-o",
-   "test_tpm2.o"
-  ],
-  "file": "test_tpm2.c"
- },
- {
-  "directory": "/home/ch/Documents/TPM/code/test/integration",
-  "arguments": [
-   "gcc",
-   "-c",
    "../../src/tpm2.c",
    "-o",
    "../../src/tpm2.o"
