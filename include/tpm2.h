@@ -31,7 +31,8 @@
 #define TSS_SAPI_FIRST_VERSION 108
 
 /* Default TCTI */
-#define TCTI_DEFAULT      SWTPM_TCTI
+#define TCTI_DEFAULT      SOCKET_TCTI
+// #define TCTI_DEFAULT      SWTPM_TCTI
 
 /* Defaults for Device TCTI */
 #define DEVICE_PATH_DEFAULT "/dev/tpm0"
