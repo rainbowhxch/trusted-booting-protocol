@@ -6,7 +6,7 @@ This protocol comes from [this paper](https://ieeexplore.ieee.org/document/91866
 
 You need to install the following dependencies:
 
-- [IBM TPM Software Simulator](https://sourceforge.net/projects/ibmswtpm2/files/ibmtpm974.tar.gz/download?use_mirror=iweb) or [swtpm](https://github.com/stefanberger/swtpm)
+- [IBM TPM Software Simulator](https://sourceforge.net/projects/ibmswtpm2/files/ibmtpm974.tar.gz/download?use_mirror=iweb)
 - [cJSON](https://github.com/DaveGamble/cJSON)
 - [OpenSSL](https://www.openssl.org/)
 - [tpm2-tss](https://github.com/tpm2-software/tpm2-tss)
@@ -18,16 +18,16 @@ To Build:
 make
 ```
 
-To Run. Running the TPM Simulator, then open two terminals, each line of the following commands runs to a terminal:
+To Run. Running the TPM Simulator, then open two terminals:
 
 ```bash
-./proxy-v
+./proxy-v <port>
 ```
 
 and
 
 ```bash
-./sdw-tpm
+./sdw-tpm <server_ip> <server_port>
 ```
 
 You will get some log files in the `log` directory, check them out.
