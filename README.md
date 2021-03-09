@@ -1,6 +1,6 @@
 # Trusted Booting Protocol
 
-This protocol comes from [this paper](https://ieeexplore.ieee.org/document/9186690/), and this implement is used for learning purposes.
+This protocol comes from [this paper](https://ieeexplore.ieee.org/document/9186690/), and this implementation is used for learning purposes.
 
 ## Dependencies
 

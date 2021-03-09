@@ -229,8 +229,7 @@ CryptoReturnCode Crypto_rsa_file_digest_sign(const CryptoMsg *digest,
   EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
   if (!mdctx) CRYPTO_EVP_PKEY_FREE_AND_RETURN(pkey, CRYPTO_RC_EVP_FAILED);
 
-  /* Initialise the DigestSign operation - SHA-256 has been selected as the
-   * message digest function in this example */
+  /* Initialise the DigestSign operation - SHA-256 */
   if (1 != EVP_DigestSignInit(mdctx, NULL, EVP_sha256(), NULL, pkey))
     CRYPTO_EVP_MD_PKEY_FREE_AND_RETURN(mdctx, pkey, CRYPTO_RC_EVP_FAILED);
 
@@ -274,7 +273,6 @@ CryptoReturnCode Crypto_rsa_file_digest_verify(const CryptoMsg *digest,
   if (1 != EVP_DigestVerifyInit(mdctx, NULL, EVP_sha256(), NULL, pkey))
     CRYPTO_EVP_MD_PKEY_FREE_AND_RETURN(mdctx, pkey, CRYPTO_RC_EVP_FAILED);
 
-  /* Initialize `key` with a public key */
   if (1 != EVP_DigestVerifyUpdate(mdctx, digest->data, digest->data_len))
     CRYPTO_EVP_MD_PKEY_FREE_AND_RETURN(mdctx, pkey, CRYPTO_RC_EVP_FAILED);
 
