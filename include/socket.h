@@ -62,15 +62,36 @@ void Socket_get_sockaddr_from_string(const char *ip, const uint16_t port,
 
 SocketReturnCode Socket_udp_init(const uint16_t port, int *sockfd);
 
+/* Unpacks the data and transforms it to SocketMsg structure.
+ *
+ * buf: raw data
+ * buf_len: the length of raw data
+ * msg: returned structure, needed free by user
+ * */
 SocketReturnCode Socket_unpack_data(void *buf, const ssize_t buf_len,
                                     SocketMsg **msg);
 
+/* Send SocketMsg to peer_addr.
+ *
+ * sockfd: socket id
+ * peer_addr: peer's address
+ * peer_addr_len: the length of peer_addr
+ * data: data needed to send
+ * data_len: the length of data
+ * */
 SocketReturnCode Socket_send_to_peer(const int sockfd, const SA *peer_addr,
                                      const socklen_t peer_addr_len,
                                      const SocketMsgType type,
                                      const SocketData data,
                                      const SocketDataLength data_len);
 
+/* Read SocketMsg from peer_addr.
+ *
+ * sockfd: socket id
+ * peer_addr: peer's address
+ * peer_addr_len: the length of peer_addr
+ * msg: readed SocketMsg, needed free by user
+ * */
 SocketReturnCode Socket_read_from_peer(const int sockfd, SA *peer_addr,
                                        socklen_t *peer_addr_len,
                                        SocketMsg **msg);

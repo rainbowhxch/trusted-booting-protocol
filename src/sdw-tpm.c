@@ -14,6 +14,7 @@
 
 static const char *kLOG_FILE_PATH = "./log/sdw-tpm.log";
 static FILE *kLOG_FD = NULL;
+static int return_code = 1;
 
 static int check_sys_env() {
   Log_write_a_normal_log(kLOG_FD, "Checking system envornment.");
@@ -65,13 +66,7 @@ static void proxy_p_finish(pid_t child_pid, int *child_fds) {
   close(child_fds[0]);
   close(child_fds[1]);
   free(child_fds);
-  int child_exit_status;
-  waitpid(child_pid, &child_exit_status, 0);
-  if (child_exit_status == EXIT_FAILURE) {
-    Log_write_a_normal_log(kLOG_FD, "proxy-p abnormally stoped");
-    exit(EXIT_FAILURE);
-  }
-  Log_write_a_normal_log(kLOG_FD, "proxy-p successfully stoped");
+  waitpid(child_pid, NULL, 0);
 }
 
 void test_crypto() {
@@ -119,7 +114,12 @@ static void sdw_tpm_loop(const char *server_ip, const char *server_port) {
         break;
       }
       case COORDINATION_MT_VERIFY_SUCCESS:
+        Log_write_a_normal_log(kLOG_FD, "proxy-p successfully stoped");
+        return_code = 0;
+        goto finish;
       case COORDINATION_MT_VERIFY_FAILED:
+        return_code = 1;
+        Log_write_a_normal_log(kLOG_FD, "proxy-p abnormally stoped");
         goto finish;
       default:
         Log_write_a_error_log(kLOG_FD, "get error coordination message type");
@@ -135,6 +135,7 @@ finish:
 static void sdw_tpm_loop_post() {
   Log_write_a_normal_log(kLOG_FD, "Sdw-TPM stoped.");
   Log_close_file(kLOG_FD);
+  exit(return_code);
 }
 
 int main(int argc, char *argv[]) {

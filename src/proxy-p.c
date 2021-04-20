@@ -24,12 +24,12 @@ static ReportItem kPRE_NONCE = NULL;
 static inline void verify_failed_handle() {
   Coordination_send_to_peer(STDOUT_FILENO, COORDINATION_MT_VERIFY_FAILED, NULL,
                             0);
-  Log_write_a_normal_log(kLOG_FD, "Send verify result to Sdw-TPM.");
+  Log_write_a_normal_log(kLOG_FD, "Send failure verify result to Sdw-TPM.");
   exit(EXIT_FAILURE);
 }
 
 static inline void verify_success_handle() {
-  Log_write_a_normal_log(kLOG_FD, "Send verify result to Sdw-TPM.");
+  Log_write_a_normal_log(kLOG_FD, "Send successful verify result to Sdw-TPM.");
   Coordination_send_to_peer(STDOUT_FILENO, COORDINATION_MT_VERIFY_SUCCESS, NULL,
                             0);
   exit(EXIT_SUCCESS);

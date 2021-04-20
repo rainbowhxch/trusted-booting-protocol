@@ -35,5 +35,6 @@ clean:
 	rm -rf $(OBJ) $(EXE)
 	rm -rf ./log/*
 	rm -rf log
+	rm -rf ./blacklist.txt
 	make -C ./test/unit/ clean
 	make -C ./test/integration/ clean

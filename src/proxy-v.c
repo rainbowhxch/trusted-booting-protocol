@@ -50,9 +50,19 @@ requre_report_error:
   return 0;
 }
 
+static void record_to_blacklist() {
+  FILE *fd = fopen("./blacklist.txt", "w");
+  char recorded_ip[INET_ADDRSTRLEN];
+  inet_ntop(AF_INET, &(kPROXY_P_ADDR.sin_addr), recorded_ip, INET_ADDRSTRLEN);
+  fwrite(recorded_ip, strlen(recorded_ip), 1, fd);
+  fclose(fd);
+}
+
 static int send_verify_response_to_proxy_p(ReportItem nonce,
                                            VerifyResult verify_result) {
   Log_write_a_normal_log(kLOG_FD, "Sending Response to Proxy-P.");
+  if (verify_result == VERIFY_FAILED)
+      record_to_blacklist();
   VerifyResponse *verify_response = NULL;
   char *verify_response_json = NULL;
   VerifyResponseReturnCode vrc =

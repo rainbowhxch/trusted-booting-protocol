@@ -68,7 +68,7 @@ void VerifyResponse_free(VerifyResponse *verify_response) {
 
 void VerifyResponse_get_verify_result(const VerifyResponse *verify_response,
                                       VerifyResult *verify_result) {
-  (*verify_result) = *((VerifyResult *)verify_response->verify_result);
+  (*verify_result) = *((VerifyResult *)verify_response->verify_result->data);
 }
 
 VerifyResponseReturnCode VerifyResponse_sign(VerifyResponse *verify_response) {
