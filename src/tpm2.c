@@ -3,7 +3,6 @@
 #include <string.h>
 #include <tss2/tss2_sys.h>
 #include <tss2/tss2_tcti_mssim.h>
-#include <tss2/tss2_tcti_swtpm.h>
 #include <tss2/tss2_tpm2_types.h>
 
 TSS2_TCTI_CONTEXT_PROXY *tcti_proxy_cast(TSS2_TCTI_CONTEXT *ctx) {
@@ -133,41 +132,10 @@ TSS2_TCTI_CONTEXT *tcti_socket_init(char const *host, uint16_t port) {
   return tcti_ctx;
 }
 
-TSS2_TCTI_CONTEXT *tcti_swtpm_init(char const *host, uint16_t port) {
-  size_t size;
-  TSS2_RC rc;
-  TSS2_TCTI_CONTEXT *tcti_ctx;
-  char conf_str[TCTI_SWTPM_CONF_MAX] = {0};
-
-  snprintf(conf_str, TCTI_SWTPM_CONF_MAX, "host=%s,port=%" PRIu16, host, port);
-  rc = Tss2_Tcti_Swtpm_Init(NULL, &size, conf_str);
-  if (rc != TSS2_RC_SUCCESS) {
-    fprintf(stderr,
-            "Faled to get allocation size for tcti context: "
-            "0x%x\n",
-            rc);
-    return NULL;
-  }
-  tcti_ctx = (TSS2_TCTI_CONTEXT *)calloc(1, size);
-  if (tcti_ctx == NULL) {
-    fprintf(stderr, "Allocation for tcti context failed\n");
-    return NULL;
-  }
-  rc = Tss2_Tcti_Swtpm_Init(tcti_ctx, &size, conf_str);
-  if (rc != TSS2_RC_SUCCESS) {
-    fprintf(stderr, "Failed to initialize tcti context: 0x%x\n", rc);
-    free(tcti_ctx);
-    return NULL;
-  }
-  return tcti_ctx;
-}
-
 TSS2_TCTI_CONTEXT *tcti_init_from_opts(test_opts_t *options) {
   switch (options->tcti_type) {
     case SOCKET_TCTI:
       return tcti_socket_init(options->socket_address, options->socket_port);
-    case SWTPM_TCTI:
-      return tcti_swtpm_init(options->socket_address, options->socket_port);
     default:
       return NULL;
   }

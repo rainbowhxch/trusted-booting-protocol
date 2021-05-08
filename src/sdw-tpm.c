@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "../include/coordination.h"
@@ -15,7 +16,13 @@
 static const char *kLOG_FILE_PATH = "./log/sdw-tpm.log";
 static FILE *kLOG_FD = NULL;
 static int return_code = 1;
+static clock_t start,end;
 
+/**
+ * @brief 检查系统环境
+ *
+ * @return 检查结果：1成功，0失败
+ */
 static int check_sys_env() {
   Log_write_a_normal_log(kLOG_FD, "Checking system envornment.");
   if (!file_exists(kPROXY_P_FILE_PATH)) {
@@ -25,6 +32,14 @@ static int check_sys_env() {
   return 1;
 }
 
+/**
+ * @brief 启动协同进程Proxy-P
+ *
+ * @param server_ip Proxy-V的IP
+ * @param server_port Proxy-V的端口号
+ * @param child_pid 返回的协同进程id
+ * @return 返回的管道描述符数组
+ */
 static int *proxy_p_start(const char *server_ip, const char *server_port,
                           pid_t *child_pid) {
   Log_write_a_normal_log(kLOG_FD, "Proxy-P starting.");
@@ -62,6 +77,12 @@ static int *proxy_p_start(const char *server_ip, const char *server_port,
   return res;
 }
 
+/**
+ * @brief 等待Proxy-P结束
+ *
+ * @param child_pid 协同进程id
+ * @param child_fds 管道描述符数组
+ */
 static void proxy_p_finish(pid_t child_pid, int *child_fds) {
   close(child_fds[0]);
   close(child_fds[1]);
@@ -69,22 +90,22 @@ static void proxy_p_finish(pid_t child_pid, int *child_fds) {
   waitpid(child_pid, NULL, 0);
 }
 
-void test_crypto() {
-  BIGNUM *bn = BN_new();
-  BN_set_word(bn, RSA_F4);
-  RSA *rsa;
-  rsa = RSA_new();
-  RSA_generate_key_ex(rsa, 2048, bn, NULL);
-  EVP_PKEY *pkey = EVP_PKEY_new();
-  EVP_PKEY_assign_RSA(pkey, rsa);
-}
-
+/**
+ * @brief SdwTPM事件循环前处理
+ *
+ */
 static void sdw_tpm_loop_pre() {
   kLOG_FD = Log_open_file(kLOG_FILE_PATH);
   if (!check_sys_env()) exit(EXIT_FAILURE);
   Log_write_a_normal_log(kLOG_FD, "Sdw-TPM readed.");
 }
 
+/**
+ * @brief SdwTPM事件循环
+ *
+ * @param server_ip Proxy-V的IP
+ * @param server_port Proxy-V的端口号
+ */
 static void sdw_tpm_loop(const char *server_ip, const char *server_port) {
   Log_write_a_normal_log(kLOG_FD, "Sdw-TPM starting.");
   pid_t child_pid;
@@ -132,15 +153,23 @@ finish:
   proxy_p_finish(child_pid, coordination_fds);
 }
 
+/**
+ * @brief SdwTPM事件循环后处理
+ *
+ */
 static void sdw_tpm_loop_post() {
   Log_write_a_normal_log(kLOG_FD, "Sdw-TPM stoped.");
   Log_close_file(kLOG_FD);
+  end = clock();
+  double duration = (double)(end-start) / CLOCKS_PER_SEC;
+  printf("%f\n", duration);
   exit(return_code);
 }
 
 int main(int argc, char *argv[]) {
   if (argc != 3)
     fprintf(stderr, "Usage: %s <server_ip> <server_port>\n", argv[0]);
+  start = clock();
   sdw_tpm_loop_pre();
   sdw_tpm_loop(argv[1], argv[2]);
   sdw_tpm_loop_post();

@@ -115,6 +115,12 @@ static const TSS2L_SYS_AUTH_COMMAND auth_cmd_null_pwd = {
         },
 };
 
+/**
+ * @brief 返回对应TPM错误码的错误描述字符串
+ *
+ * @param rc 错误码
+ * @return 错误描述字符串
+ */
 inline static const char *TPM2_get_error_msg(TSS2_RC rc) {
   switch (rc) {
     case TSS2_RC_SUCCESS:
@@ -150,27 +156,91 @@ static TSS2_RC teardown_nv(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index);
 static void TPM2_init_mssim(TSS2_TCTI_CONTEXT **tcti_context,
                             TSS2_TCTI_CONTEXT **tcti_inner);
 
+/**
+ * @brief ESYS上下文初始化
+ *
+ * @param esys_ctx 返回的ESYS上下文
+ * @param tcti_inner 返回的TCTI上下文
+ * @return 错误码
+ */
 TSS2_RC TPM2_esys_context_init(ESYS_CONTEXT **esys_ctx,
                                TSS2_TCTI_CONTEXT **tcti_inner);
 
+/**
+ * @brief ESYS上下文销毁
+ *
+ * @param esys_ctx ESYS上下文
+ * @param tcti_inner TCTI上下文
+ * @return 错误码
+ */
 TSS2_RC TPM2_esys_context_teardown(ESYS_CONTEXT *esys_ctx,
                                    TSS2_TCTI_CONTEXT *tcti_inner);
 
+/**
+ * @brief ESYS上的PCR扩展
+ *
+ * @param ctx ESYS上下文
+ * @param sysci 要扩展的SysCI
+ * @param pcr_digest 返回的PCR摘要
+ * @return 错误码
+ */
 TSS2_RC TPM2_esys_pcr_extend(ESYS_CONTEXT *ctx, Sysci *sysci,
                              CryptoMsg **pcr_digest);
 
+/**
+ * @brief SYS上下文初始化
+ *
+ * @param sys_context 返回的SYS上下文
+ * @return 错误码
+ */
 TSS2_RC TPM2_sys_context_init(TSS2_SYS_CONTEXT **sys_context);
 
+/**
+ * @brief SYS上下文销毁
+ *
+ * @param sys_context SYS上下文
+ * @return 错误码
+ */
 TSS2_RC TPM2_sys_context_teardown(TSS2_SYS_CONTEXT *sys_context);
 
+/**
+ * @brief NV初始化
+ *
+ * @param sys_ctx SYS上下文
+ * @param index 要初始化的NV的索引
+ * @return 错误码
+ */
 TSS2_RC TPM2_sys_nv_init(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index);
 
+/**
+ * @brief NV写
+ *
+ * @param sys_ctx SYS上下文
+ * @param nv_index NV索引
+ * @param data 要写入的数据
+ * @return 错误码
+ */
 TSS2_RC TPM2_sys_nv_write(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index,
                           CryptoMsg *data);
 
+/**
+ * @brief NV读
+ *
+ * @param sys_ctx SYS上下文
+ * @param nv_index NV索引
+ * @param data 被读取出的数据
+ * @return 错误码
+ */
 TSS2_RC TPM2_sys_nv_read(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX nv_index,
                          CryptoMsg **data);
 
+/**
+ * @brief NV销毁
+ *
+ * @param sys_ctx SYS上下文
+ * @param index 要销毁的NV的索引
+ * @return 错误码
+ */
 TSS2_RC TPM2_sys_nv_teardown(TSS2_SYS_CONTEXT *sys_ctx, TPMI_RH_NV_INDEX index);
 
 #endif /* CHX_TPM2_H */

@@ -21,6 +21,10 @@ static socklen_t kPROXY_V_ADDR_LEN = sizeof(kPROXY_V_ADDR);
 static FILE *kLOG_FD = NULL;
 static ReportItem kPRE_NONCE = NULL;
 
+/**
+ * @brief 认证错误处理函数
+ *
+ */
 static inline void verify_failed_handle() {
   Coordination_send_to_peer(STDOUT_FILENO, COORDINATION_MT_VERIFY_FAILED, NULL,
                             0);
@@ -28,6 +32,10 @@ static inline void verify_failed_handle() {
   exit(EXIT_FAILURE);
 }
 
+/**
+ * @brief 认证成功处理函数
+ *
+ */
 static inline void verify_success_handle() {
   Log_write_a_normal_log(kLOG_FD, "Send successful verify result to Sdw-TPM.");
   Coordination_send_to_peer(STDOUT_FILENO, COORDINATION_MT_VERIFY_SUCCESS, NULL,
@@ -35,6 +43,12 @@ static inline void verify_success_handle() {
   exit(EXIT_SUCCESS);
 }
 
+/**
+ * @brief 从SdwTPM请求SysCI
+ *
+ * @param sysci 请求的SysCI
+ * @return 是否请求成功：1成功，0失败
+ */
 static int requre_sysci_from_sdw_tpm(Sysci **sysci) {
   Log_write_a_normal_log(kLOG_FD, "Requring SysCI from Sdw-TPM.");
   CoordinationMsg *coord_msg = NULL;
@@ -57,6 +71,13 @@ requre_sysci_error:
   return 0;
 }
 
+/**
+ * @brief 发送Report至Proxy-V
+ *
+ * @param sysci 要发送的SysCI
+ * @param id 要发送的ID
+ * @return 是否发送成功：1成功，0失败
+ */
 static int send_report_to_proxy_v(Sysci *sysci, const char *id) {
   Log_write_a_normal_log(kLOG_FD, "Sending Report to Proxy-V.");
   Report *report;
@@ -86,6 +107,12 @@ send_report_error:
   return 0;
 }
 
+/**
+ * @brief 请求SysCI发送Report一次
+ *
+ * @param id 要发送的ID
+ * @return 是否成功：1成功，0失败
+ */
 static int requre_sysci_and_send_report_once(const char *id) {
   Sysci *sysci = NULL;
   int res = 0;
@@ -95,6 +122,12 @@ static int requre_sysci_and_send_report_once(const char *id) {
   return res;
 }
 
+/**
+ * @brief 验证VerifyResponse
+ *
+ * @param verify_response 要验证的VerifyResponse
+ * @return 验证结果：1成功，0失败
+ */
 static int verify_verifyResponse(VerifyResponse *verify_response) {
   Log_write_a_normal_log(kLOG_FD, "Verifying Response.");
   int verify_res;
@@ -107,31 +140,58 @@ verify_verifyResponse_error:
   return 0;
 }
 
+/**
+ * @brief 验证Nonce
+ *
+ * @param nonce 要验证的Nonce
+ * @return 验证结果：1成功，0失败
+ */
 static int verify_nonce(VerifyResponseItem nonce) {
   Log_write_a_normal_log(kLOG_FD, "Verifying Nonce.");
   return memcmp(kPRE_NONCE->data, nonce->data, kPRE_NONCE->data_len) == 0;
 }
 
+/**
+ * @brief 认证是否成功
+ *
+ * @param verify_response VerifyResponse消息
+ * @return 认证结果：1成功，0失败
+ */
 static int verify_result(VerifyResponse *verify_response) {
   VerifyResult verify_result;
   VerifyResponse_get_verify_result(verify_response, &verify_result);
   return verify_result == VERIFY_SUCCESS;
 }
 
-static void parse_proxy_v_msg_loop_post() {
+/**
+ * @brief Proxy-P事件循环后处理
+ *
+ */
+static void parse_proxy_p_msg_loop_post() {
   Log_write_a_normal_log(kLOG_FD, "Proxy-P loop stoped.");
   Log_close_file(kLOG_FD);
 }
 
-static void parse_proxy_v_msg_loop_pre(const char *server_ip,
+/**
+ * @brief Proxy-P事件循环前处理
+ *
+ * @param server_ip Proxy-V的ip
+ * @param server_port Proxy-V的端口号
+ */
+static void parse_proxy_p_msg_loop_pre(const char *server_ip,
                                        uint16_t server_port) {
   kLOG_FD = Log_open_file(kLOG_FILE_PATH);
   Socket_udp_init(kPROXY_P_PORT, &kSOCK_FD);
   Socket_get_sockaddr_from_string(server_ip, server_port, &kPROXY_V_ADDR);
-  atexit(parse_proxy_v_msg_loop_post);
+  atexit(parse_proxy_p_msg_loop_post);
   Log_write_a_normal_log(kLOG_FD, "Proxy-P loop readed.");
 }
 
+/**
+ * @brief Proxy-P事件循环
+ *
+ * @param id Proxy-P的ID
+ */
 static void parse_proxy_v_msg_loop(const char *id) {
   Log_write_a_normal_log(kLOG_FD, "Proxy-P loop starting.");
   if (!requre_sysci_and_send_report_once(id)) exit(EXIT_FAILURE);
@@ -172,9 +232,9 @@ static void parse_proxy_v_msg_loop(const char *id) {
 }
 
 int main(int argc, char *argv[]) {
-  parse_proxy_v_msg_loop_pre(argv[1], atoi(argv[2]));
+  parse_proxy_p_msg_loop_pre(argv[1], atoi(argv[2]));
   parse_proxy_v_msg_loop(argv[0]);
-  parse_proxy_v_msg_loop_post();
+  parse_proxy_p_msg_loop_post();
 
   return 0;
 }

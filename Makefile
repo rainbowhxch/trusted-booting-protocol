@@ -14,7 +14,7 @@ test: $(OBJ)
 
 proxy-v: $(addprefix ./src/, proxy-v.o socket.o crypto.o sysci.o report.o \
 			tpm2.o log.o verify-response.o)
-	$(CC) $^ -o $@ -lcrypto -lcjson -ltss2-esys -ltss2-sys -ltss2-tcti-mssim -ltss2-tcti-swtpm
+	$(CC) $^ -o $@ -lcrypto -lcjson -ltss2-esys -ltss2-sys -ltss2-tcti-mssim
 
 proxy-p: $(addprefix ./src/, proxy-p.o coordination.o socket.o crypto.o \
 			sysci.o report.o log.o verify-response.o)

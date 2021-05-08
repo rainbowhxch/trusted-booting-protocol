@@ -218,7 +218,7 @@ error:
 
 CryptoReturnCode Crypto_rsa_file_digest_sign(const CryptoMsg *digest,
                                              const char *pri_key_path,
-                                             CryptoMsg **signed_digest) {
+                                             CryptoMsg **signature) {
   FILE *fd = fopen(pri_key_path, "rb");
   if (!fd) return CRYPTO_RC_OPEN_FILE_FAILED;
   EVP_PKEY *pkey = EVP_PKEY_new();
@@ -244,11 +244,11 @@ CryptoReturnCode Crypto_rsa_file_digest_sign(const CryptoMsg *digest,
   if (1 != EVP_DigestSignFinal(mdctx, NULL, &signed_digest_len))
     CRYPTO_EVP_MD_PKEY_FREE_AND_RETURN(mdctx, pkey, CRYPTO_RC_EVP_FAILED);
   CryptoReturnCode rc =
-      CryptoMsg_new_with_length(signed_digest_len, signed_digest);
+      CryptoMsg_new_with_length(signed_digest_len, signature);
   CRYPTO_GOTO_IF_ERROR(rc);
   /* Obtain the signature */
-  if (1 != EVP_DigestSignFinal(mdctx, (*signed_digest)->data,
-                               &(*signed_digest)->data_len))
+  if (1 != EVP_DigestSignFinal(mdctx, (*signature)->data,
+                               &(*signature)->data_len))
     CRYPTO_EVP_MD_PKEY_FREE_AND_RETURN(mdctx, pkey, CRYPTO_RC_EVP_FAILED);
 
 error:

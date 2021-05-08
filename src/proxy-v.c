@@ -24,6 +24,12 @@ static size_t kRETRY_CNT = 5;
 static ReportItem kPRE_NONCE = NULL;
 static FILE *kLOG_FD = NULL;
 
+/**
+ * @brief 从Proxy-P请求Report
+ *
+ * @param report 请求到的Report
+ * @return 请求结果：1成功，0失败
+ */
 static int requre_report_from_proxy_p(Report **report) {
   Log_write_a_normal_log(kLOG_FD, "Requring Report from Porxy-P.");
   SocketMsg *readed_msg = NULL;
@@ -50,6 +56,10 @@ requre_report_error:
   return 0;
 }
 
+/**
+ * @brief 将当前请求主机IP记录到blacklist.txt
+ *
+ */
 static void record_to_blacklist() {
   FILE *fd = fopen("./blacklist.txt", "w");
   char recorded_ip[INET_ADDRSTRLEN];
@@ -58,6 +68,13 @@ static void record_to_blacklist() {
   fclose(fd);
 }
 
+/**
+ * @brief 发送VerifyResponse至Proxy-P
+ *
+ * @param nonce 随机数
+ * @param verify_result 认证结果
+ * @return 发送结果：1成功，0失败
+ */
 static int send_verify_response_to_proxy_p(ReportItem nonce,
                                            VerifyResult verify_result) {
   Log_write_a_normal_log(kLOG_FD, "Sending Response to Proxy-P.");
@@ -85,6 +102,12 @@ send_verify_error:
   return 0;
 }
 
+/**
+ * @brief 验证Report
+ *
+ * @param report 待验证的Report
+ * @return 验证结果：1成功，0失败
+ */
 static int verify_report(Report **report) {
   Log_write_a_normal_log(kLOG_FD, "Verifying Report.");
   int verify_res;
@@ -102,6 +125,12 @@ verify_report_error:
   return 0;
 }
 
+/**
+ * @brief 验证Nonce
+ *
+ * @param nonce 待验证的Nonce
+ * @return 验证结果：1成功，0失败
+ */
 static int verify_nonce(ReportItem nonce) {
   Log_write_a_normal_log(kLOG_FD, "Verifying Nonce.");
   if (kPRE_NONCE == NULL) {
@@ -120,6 +149,12 @@ verify_nonce_error:
   return 0;
 }
 
+/**
+ * @brief 验证时间戳
+ *
+ * @param timestamp 待验证的时间戳
+ * @return 验证结果：1成功，0失败
+ */
 static int verify_timestamp(ReportItem timestamp) {
   Log_write_a_normal_log(kLOG_FD, "Verifying Timestamp.");
   time_t report_timestamp = *((time_t *)timestamp);
@@ -127,6 +162,12 @@ static int verify_timestamp(ReportItem timestamp) {
   return 1;
 }
 
+/**
+ * @brief 验证SysCI
+ *
+ * @param encrypted_sysci 待验证的SysCI
+ * @return 验证结果：1成功，0失败
+ */
 static int verify_sysci(ReportItem encrypted_sysci) {
   Log_write_a_normal_log(kLOG_FD, "Verifying SysCI.");
   Sysci *sysci = NULL;
@@ -175,14 +216,23 @@ verify_sysci_error:
   return 0;
 }
 
-static void parse_proxy_p_msg_loop_pre(uint16_t port) {
+/**
+ * @brief Proxy-V事件循环前处理
+ *
+ * @param port 运行端口
+ */
+static void parse_proxy_v_msg_loop_pre(uint16_t port) {
   kPROXY_V_PORT = port;
   kLOG_FD = Log_open_file(kLOG_FILE_PATH);
   Socket_udp_init(kPROXY_V_PORT, &kSOCK_FD);
   Log_write_a_normal_log(kLOG_FD, "Proxy-V loop readed.");
 }
 
-static void parse_proxy_p_msg_loop() {
+/**
+ * @brief Proxy-V事件循环
+ *
+ */
+static void parse_proxy_v_msg_loop() {
   Log_write_a_normal_log(kLOG_FD, "Proxy-V loop starting.");
   while (1) {
     SocketMsg *sock_msg = NULL;
@@ -230,16 +280,20 @@ static void parse_proxy_p_msg_loop() {
   }
 }
 
-static void parse_proxy_p_msg_loop_post() {
+/**
+ * @brief Proxy-V事件循环后处理
+ *
+ */
+static void parse_proxy_v_msg_loop_post() {
   Log_write_a_normal_log(kLOG_FD, "Proxy-V loop stoped.");
   Log_close_file(kLOG_FD);
 }
 
 int main(int argc, char *argv[]) {
   if (argc != 2) fprintf(stderr, "Usage: %s <port>\n", argv[0]);
-  parse_proxy_p_msg_loop_pre(atoi(argv[1]));
-  parse_proxy_p_msg_loop();
-  parse_proxy_p_msg_loop_post();
+  parse_proxy_v_msg_loop_pre(atoi(argv[1]));
+  parse_proxy_v_msg_loop();
+  parse_proxy_v_msg_loop_post();
 
   return 0;
 }
