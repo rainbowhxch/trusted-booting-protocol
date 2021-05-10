@@ -1,3 +1,9 @@
+/**
+ * File   : sysci.c
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #include "../include/sysci.h"
 
 #include <cjson/cJSON.h>

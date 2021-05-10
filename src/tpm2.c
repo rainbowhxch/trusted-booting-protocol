@@ -1,3 +1,9 @@
+/**
+ * File   : tpm2.c
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #include "../include/tpm2.h"
 
 #include <string.h>

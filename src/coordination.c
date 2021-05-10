@@ -1,3 +1,9 @@
+/**
+ * File   : coordination.c
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #include "../include/coordination.h"
 
 #include <stdio.h>

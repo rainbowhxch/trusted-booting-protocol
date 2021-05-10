@@ -1,3 +1,9 @@
+/**
+ * File   : crypto.h
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #ifndef CHX_CRYPTO_H
 #define CHX_CRYPTO_H
 

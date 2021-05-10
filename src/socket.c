@@ -1,3 +1,9 @@
+/**
+ * File   : socket.c
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #include "../include/socket.h"
 
 #include <netinet/in.h>

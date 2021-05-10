@@ -1,3 +1,9 @@
+/**
+ * File   : sysci.h
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #ifndef CHX_SYSCI_H
 #define CHX_SYSCI_H
 

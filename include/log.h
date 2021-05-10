@@ -1,3 +1,9 @@
+/**
+ * File   : log.h
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #ifndef CHX_LOG_H
 #define CHX_LOG_H
 

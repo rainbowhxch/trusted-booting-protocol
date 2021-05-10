@@ -1,3 +1,9 @@
+/**
+ * File   : log.c
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>

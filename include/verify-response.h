@@ -1,3 +1,9 @@
+/**
+ * File   : verify-response.h
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #ifndef CHX_VERIFY_RESPONSE_H
 #define CHX_VERIFY_RESPONSE_H
 

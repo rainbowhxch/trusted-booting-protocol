@@ -1,3 +1,9 @@
+/**
+ * File   : socket.h
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #ifndef CHX_SOCKET_H
 #define CHX_SOCKET_H
 

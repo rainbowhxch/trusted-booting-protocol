@@ -1,3 +1,9 @@
+/**
+ * File   : util.c
+ * License: MIT
+ * Author : Chen Hengxun
+ * Date   : 10.05.2021
+ */
 #include "../include/util.h"
 
 #include <stdlib.h>
