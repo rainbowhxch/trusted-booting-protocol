@@ -1,6 +1,6 @@
 # Trusted Booting Protocol
 
-This protocol comes from [this paper](https://ieeexplore.ieee.org/document/9186690/), and this implementation is used for learning purposes.
+A remote trusted booting protocol based on TPM chip, which can verify the credibility of the remote host through the master host and prevent the remote one from being hijacked. At the same time, the protocol can be self insured.
 
 ## Dependencies
 
@@ -31,6 +31,14 @@ and
 ```
 
 You will get some log files in the `log` directory, check them out.
+
+## Reference
+1. [Part 1:Architecture](https://trustedcomputinggroup.org/wp-content/uploads/TCG_TPM2_r1p59_Part1_Architecture_pub.pdf)
+2. [Part 2:Structures](https://trustedcomputinggroup.org/wp-content/uploads/TCG_TPM2_r1p59_Part2_Structures_pub.pdf)
+3. [Part 3:Commands](https://trustedcomputinggroup.org/wp-content/uploads/TCG_TPM2_r1p59_Part3_Commands_pub.pdf)
+4. [Part 3:Commands - Code](https://trustedcomputinggroup.org/wp-content/uploads/TCG_TPM2_r1p59_Part3_Commands_code_pub.pdf)
+5. [TCG TSS 2.0 System Level API (SAPI) Specification](https://trustedcomputinggroup.org/resource/tcg-tss-2-0-system-level-api-sapi-specification/)
+6. [TCG TSS 2.0 Enhanced System API (ESAPI) Specification](https://trustedcomputinggroup.org/resource/tcg-tss-2-0-enhanced-system-api-esapi-specification/)
 
 ## Credit
 
